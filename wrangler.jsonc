@@ -10,6 +10,16 @@
     "directory": ".open-next/assets",
     "binding": "ASSETS"
   },
+  "vars": {
+    "NEXT_PUBLIC_SUPABASE_URL": "https://ysbzmblentjmvgqsyuop.supabase.co",
+    "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_13rd-H-Uxhj-dUz_dVpUOg_lsjopLXg",
+    "OPENAI_TTS_MODEL": "gpt-4o-mini-tts",
+    "OPENAI_TTS_VOICE_GENTLE": "coral",
+    "OPENAI_TTS_VOICE_SOLEMN": "ash",
+    "BUNNY_STORAGE_ZONE": "my-prayer-altar-videos-sg",
+    "BUNNY_STORAGE_ENDPOINT": "https://sg.storage.bunnycdn.com",
+    "BUNNY_VIDEO_CDN_URL": "https://myprayeraltar-videos-sg.b-cdn.net"
+  },
   "observability": {
     "enabled": true
   }
