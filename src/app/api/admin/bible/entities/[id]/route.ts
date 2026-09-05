@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getAdminServiceClient } from "@/lib/adminClient";
 import { verifyAdminAuth } from "@/lib/authServer";
-
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
 
 export async function GET(
   request: NextRequest,
@@ -12,6 +10,7 @@ export async function GET(
   if (!auth.authorized) return NextResponse.json({ error: auth.error || "Unauthorized." }, { status: 401 });
 
   const { id } = await context.params;
+  const supabase = getAdminServiceClient();
 
   try {
     const { data: entity, error } = await supabase
@@ -36,6 +35,7 @@ export async function PUT(
   if (!auth.authorized) return NextResponse.json({ error: auth.error || "Unauthorized." }, { status: 401 });
 
   const { id } = await context.params;
+  const supabase = getAdminServiceClient();
 
   try {
     const body = await request.json();
@@ -77,6 +77,7 @@ export async function DELETE(
   if (!auth.authorized) return NextResponse.json({ error: auth.error || "Unauthorized." }, { status: 401 });
 
   const { id } = await context.params;
+  const supabase = getAdminServiceClient();
 
   try {
     const { error } = await supabase.from("bible_entities").delete().eq("id", id);

@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getAdminServiceClient } from "@/lib/adminClient";
 import { verifyAdminAuth } from "@/lib/authServer";
 import { safeLogAdminAiUsage } from "@/lib/ai/aiLogger";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } }
-);
 
 export async function POST(request: NextRequest) {
   const auth = await verifyAdminAuth(request);
@@ -15,6 +9,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: auth.error || "Unauthorized." }, { status: 401 });
   }
 
+  const supabase = getAdminServiceClient();
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: "OPENAI_API_KEY is not configured on the server." }, { status: 500 });

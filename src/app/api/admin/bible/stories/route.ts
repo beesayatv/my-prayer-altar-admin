@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getAdminServiceClient } from "@/lib/adminClient";
 import { verifyAdminAuth } from "@/lib/authServer";
-
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
 
 export async function GET(request: NextRequest) {
   const auth = await verifyAdminAuth(request);
   if (!auth.authorized) return NextResponse.json({ error: auth.error || "Unauthorized." }, { status: 401 });
+  const supabase = getAdminServiceClient();
 
   try {
     const { data, error } = await supabase
@@ -25,6 +24,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const auth = await verifyAdminAuth(request);
   if (!auth.authorized) return NextResponse.json({ error: auth.error || "Unauthorized." }, { status: 401 });
+  const supabase = getAdminServiceClient();
 
   try {
     const body = await request.json();

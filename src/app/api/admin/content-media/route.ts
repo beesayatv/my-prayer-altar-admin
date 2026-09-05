@@ -1,10 +1,9 @@
 import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getAdminServiceClient } from "@/lib/adminClient";
 import { verifyAdminAuth } from "@/lib/authServer";
 import { bunnyPublicUrl, deleteFromBunny, uploadToBunny } from "@/lib/bunnyStorage";
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
 const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const maxBytes = 5 * 1024 * 1024;
 const errorMessage = (error: unknown) => error instanceof Error ? error.message : "Unexpected server error";
@@ -12,6 +11,7 @@ const errorMessage = (error: unknown) => error instanceof Error ? error.message 
 export async function POST(request: NextRequest) {
   const auth = await verifyAdminAuth(request);
   if (!auth.authorized) return NextResponse.json({ error: auth.error || "Unauthorized." }, { status: 401 });
+  const supabase = getAdminServiceClient();
   try {
     const formData = await request.formData(); const file = formData.get("file"); const contentId = String(formData.get("contentId") || ""); const role = String(formData.get("role") || "gallery");
     if (!(file instanceof File) || !contentId || !allowedTypes.has(file.type) || file.size > maxBytes) return NextResponse.json({ error: "Upload a JPEG, PNG, or WebP image smaller than 5 MB." }, { status: 400 });
@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const auth = await verifyAdminAuth(request);
   if (!auth.authorized) return NextResponse.json({ error: auth.error || "Unauthorized." }, { status: 401 });
+  const supabase = getAdminServiceClient();
   try {
     const { id } = await request.json() as { id?: string }; if (!id) return NextResponse.json({ error: "Missing media id." }, { status: 400 });
     const { data: media, error: loadError } = await supabase.from("content_media").select("id,storage_path,public_url").eq("id", id).single(); if (loadError) throw loadError;

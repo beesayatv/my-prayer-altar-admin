@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getAdminServiceClient } from "@/lib/adminClient";
 import { bunnyPublicUrl, deleteFromBunny, uploadToBunny } from "@/lib/bunnyStorage";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://ysbzmblentjmvgqsyuop.supabase.co";
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-
-const supabase = createClient(supabaseUrl, serviceRoleKey);
 const BUCKET = "today-media";
 
 export async function GET() {
   try {
+    const supabase = getAdminServiceClient();
     const { data, error } = await supabase
       .from("ambient_music_tracks")
       .select("*")
@@ -27,6 +24,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    const supabase = getAdminServiceClient();
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
     const title = (formData.get("title") as string) || "Ambient Track";
@@ -73,6 +71,7 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
+    const supabase = getAdminServiceClient();
     const body = await req.json();
     const { id, is_active } = body;
 
@@ -99,6 +98,7 @@ export async function PATCH(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
+    const supabase = getAdminServiceClient();
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
 

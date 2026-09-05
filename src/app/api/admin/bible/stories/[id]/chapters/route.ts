@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getAdminServiceClient } from "@/lib/adminClient";
 import { verifyAdminAuth } from "@/lib/authServer";
 import { deleteFromBunny } from "@/lib/bunnyStorage";
-
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
 
 export async function POST(
   request: NextRequest,
@@ -13,6 +11,7 @@ export async function POST(
   if (!auth.authorized) return NextResponse.json({ error: auth.error || "Unauthorized." }, { status: 401 });
 
   const { id: story_id } = await context.params;
+  const supabase = getAdminServiceClient();
 
   try {
     const body = await request.json();
@@ -50,6 +49,7 @@ export async function PUT(
 ) {
   const auth = await verifyAdminAuth(request);
   if (!auth.authorized) return NextResponse.json({ error: auth.error || "Unauthorized." }, { status: 401 });
+  const supabase = getAdminServiceClient();
 
   try {
     const body = await request.json();

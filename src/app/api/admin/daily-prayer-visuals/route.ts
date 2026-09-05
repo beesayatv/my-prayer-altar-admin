@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getAdminServiceClient } from "@/lib/adminClient";
 import { verifyAdminAuth } from "@/lib/authServer";
 import { bunnyPublicUrl, deleteFromBunny, uploadToBunny } from "@/lib/bunnyStorage";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://ysbzmblentjmvgqsyuop.supabase.co";
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 20;
@@ -22,6 +17,7 @@ function errorMessage(error: unknown) {
 
 export async function GET(req: NextRequest) {
   try {
+    const supabase = getAdminServiceClient();
     const { searchParams } = new URL(req.url);
     const contentId = searchParams.get("contentId");
     if (contentId) {
@@ -70,6 +66,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const supabase = getAdminServiceClient();
     const auth = await verifyAdminAuth(req);
     if (!auth.authorized) return NextResponse.json({ error: auth.error || "Unauthorized." }, { status: 401 });
     const formData = await req.formData();
@@ -121,6 +118,7 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
+    const supabase = getAdminServiceClient();
     const auth = await verifyAdminAuth(req);
     if (!auth.authorized) return NextResponse.json({ error: auth.error || "Unauthorized." }, { status: 401 });
     const body = await req.json();
@@ -146,6 +144,7 @@ export async function PATCH(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
+    const supabase = getAdminServiceClient();
     const auth = await verifyAdminAuth(req);
     if (!auth.authorized) return NextResponse.json({ error: auth.error || "Unauthorized." }, { status: 401 });
     const { searchParams } = new URL(req.url);
