@@ -82,13 +82,33 @@ export async function POST(request: Request) {
       : "standard";
 
     // Load custom system prompt from settings if available
-    const { data: configData } = await (await import("@/lib/supabase")).requireSupabase()
-      .from("automation_configs")
-      .select("config_json")
-      .eq("content_type", "daily_prayer")
-      .maybeSingle();
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const pubKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-    const configJson = (configData?.config_json as Record<string, any>) || {};
+    let configJson: Record<string, any> = {};
+    if (url && (serviceKey || (pubKey && auth.token))) {
+      const { createClient } = await import("@supabase/supabase-js");
+      const client = serviceKey
+        ? createClient(url, serviceKey, { auth: { persistSession: false } })
+        : createClient(url, pubKey!, {
+            auth: { persistSession: false },
+            global: { headers: { Authorization: `Bearer ${auth.token}` } },
+          });
+
+      const { data: configData, error: configError } = await client
+        .from("automation_configs")
+        .select("config_json")
+        .eq("content_type", "daily_prayer")
+        .maybeSingle();
+
+      if (configError) {
+        console.warn("Could not load automation_configs for daily prayer:", configError.message);
+      } else if (configData?.config_json) {
+        configJson = configData.config_json as Record<string, any>;
+      }
+    }
+
     const customPrompt = (configJson.custom_system_instruction as string) || (configJson.ai?.prompt as string) || undefined;
 
     // 4. Invoke AI Generation Service
