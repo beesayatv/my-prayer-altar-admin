@@ -19,10 +19,15 @@
 
 # production
 /build
+/.open-next/
 
 # misc
 .DS_Store
 *.pem
+.artifacts/
+scratch/
+check_db_status.js
+.idea/
 
 # debug
 npm-debug.log*
