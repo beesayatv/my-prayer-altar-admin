@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Field } from "@/components/ContentEditor";
 import { requireSupabase } from "@/lib/supabase";
+import { adminAuthorizationHeader } from "@/lib/authServer";
 import { DAILY_PRAYER } from "@/lib/contentConfiguration";
 
 const OPENAI_VOICES = [
@@ -107,9 +108,14 @@ export function VoiceStudioSettingsForm() {
     try {
       setIsPlayingPreview(true);
       setPreviewError(null);
+      // Get admin auth header
+      const authHeader = await adminAuthorizationHeader();
       const res = await fetch("/api/admin/tts/preview", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeader,
+        },
         body: JSON.stringify({
           provider: previewProvider,
           voice: previewVoice,
