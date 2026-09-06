@@ -42,28 +42,13 @@ export async function POST(request: NextRequest) {
     let mimeType: string;
     let fileExtension: string;
 
-    if (isVideo) {
-      // Video: upload the raw MP4 without any transformation
-      uploadBuffer = Buffer.from(await file.arrayBuffer());
-      mimeType = "video/mp4";
-      fileExtension = "mp4";
-    } else {
-      // Image: resolve target dimensions from aspect ratio, normalise & convert to WebP
-      let width = 1080;
-      let height = 1350; // 4:5 default
-      if (aspectRatio === "16:9") { width = 1920; height = 1080; }
-      else if (aspectRatio === "9:16") { width = 1080; height = 1920; }
-      // sharp cannot be loaded by the Cloudflare Worker runtime. Keep this
-      // image-only dependency out of the MP4 request path so video uploads
-      // can be stored without initializing it.
-      const { default: sharp } = await import("sharp");
-      uploadBuffer = await sharp(Buffer.from(await file.arrayBuffer()))
-        .resize(width, height, { fit: "cover", position: "attention" })
-        .webp({ quality: 92 })
-        .toBuffer();
-      mimeType = "image/webp";
-      fileExtension = "webp";
-    }
+    // Manual uploads are already composed for their selected aspect ratio.
+    // Store the original asset unchanged; native image processors such as
+    // sharp are not available in the Cloudflare Worker runtime. AI-generated
+    // cards use their own rendering route and retain their aspect-ratio flow.
+    uploadBuffer = Buffer.from(await file.arrayBuffer());
+    mimeType = file.type;
+    fileExtension = isVideo ? "mp4" : file.type.split("/")[1] || "webp";
 
     const storagePath = `content-images/${contentId}/${mediaId}.${fileExtension}`;
 

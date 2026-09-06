@@ -428,11 +428,8 @@ export function InspirationFields({ contentId, metadata, initialBody, onRendered
     {/* ── Upload mode ── */}
     {mode === "upload" && <>
       <Field
-        label={isVideoFile ? "Video aspect ratio" : "Target aspect ratio"}
-        help={isVideoFile
-          ? "Select the aspect ratio that matches your video — this is stored as metadata only, the video file is not re-encoded"
-          : "The image will be cropped and resized to match the selected dimensions"
-        }
+        label={isVideoFile ? "Video aspect ratio" : "Image aspect ratio"}
+        help="Select the aspect ratio that matches your uploaded asset. It is stored as metadata only; your file is not re-encoded."
       >
         <select
           className="select w-full max-w-xs"
