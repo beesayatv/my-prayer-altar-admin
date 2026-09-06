@@ -5,6 +5,8 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { bunnyPublicUrl, deleteFromBunny, uploadToBunny } from "@/lib/bunnyStorage";
 import { runtimeEnv } from "@/lib/runtimeEnv";
 
+const NARRATION_PROVIDER_TIMEOUT_MS = 110_000;
+
 export interface GenerateNarrationInput {
   contentId: string;
   title: string;
@@ -100,7 +102,7 @@ export async function callOpenAISpeechAPI(
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(60000),
+      signal: AbortSignal.timeout(NARRATION_PROVIDER_TIMEOUT_MS),
     });
   } catch (err) {
     await safeLogAdminAiUsage({
@@ -280,7 +282,7 @@ export async function callGeminiFlashTTS(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(reqBody),
-      signal: AbortSignal.timeout(60000),
+      signal: AbortSignal.timeout(NARRATION_PROVIDER_TIMEOUT_MS),
     });
   } catch (err) {
     await safeLogAdminAiUsage({

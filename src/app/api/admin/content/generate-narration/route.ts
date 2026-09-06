@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/authServer";
 import { generateAndStoreProfileNarration } from "@/lib/ai/narrationGenerator";
+import { runtimeEnv } from "@/lib/runtimeEnv";
 
-export const maxDuration = 60; // 60 seconds timeout limit for audio generation and Whisper alignment
+// Gemini may need more than a minute for longer Bible readings and prayers.
+export const maxDuration = 120;
 
 export async function POST(request: Request) {
   try {
@@ -34,13 +36,17 @@ export async function POST(request: Request) {
       );
     }
 
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
+    const url = runtimeEnv("NEXT_PUBLIC_SUPABASE_URL");
+    const serviceKey = runtimeEnv("SUPABASE_SERVICE_ROLE_KEY");
+    const anonKey = runtimeEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
+
+    if (!url || (!serviceKey && !anonKey)) {
+      return NextResponse.json({ success: false, error: "Supabase server configuration is unavailable." }, { status: 500 });
+    }
 
     const supabase = serviceKey
       ? createClient(url, serviceKey, { auth: { persistSession: false } })
-      : createClient(url, anonKey, {
+      : createClient(url, anonKey!, {
           auth: { persistSession: false },
           global: { headers: auth.token ? { Authorization: `Bearer ${auth.token}` } : {} },
         });
