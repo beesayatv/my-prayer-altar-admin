@@ -123,11 +123,21 @@ export async function POST(request: Request) {
       );
     }
 
-    // 5. Call OpenAI
+    // 5. Call AI (inheriting default model from Text Studio)
+    const supabase = (await import("@/lib/supabase")).requireSupabase();
+    const { data: configData } = await supabase
+      .from("automation_configs")
+      .select("config_json")
+      .eq("content_type", "catholic_news")
+      .maybeSingle();
+
+    const configuredModel = (configData?.config_json as { ai?: { model?: string } })?.ai?.model || "gemini-2.5-flash";
+
     const draft = await generateUpdateDraft({
       url,
       textContent,
       length: length || "standard",
+      model: configuredModel,
     });
 
     return NextResponse.json({

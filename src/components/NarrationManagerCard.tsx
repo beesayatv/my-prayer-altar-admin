@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Field } from "@/components/ContentEditor";
 import { requireSupabase } from "@/lib/supabase";
 
 export interface NarrationManagerCardProps {
@@ -11,12 +10,34 @@ export interface NarrationManagerCardProps {
   contentType?: string;
 }
 
-  const OPENAI_VOICES = [
-    { id: "ash", label: "Ash (Solemn, calm & reverent)" },
-    { id: "cedar", label: "Cedar (Deep & resonant)" },
-    { id: "marin", label: "Marin (Gentle & warm)" },
-    { id: "nova", label: "Nova (Bright & energetic)" },
-  ];
+const OPENAI_VOICES = [
+  { id: "marin", label: "Marin (Female · Gentle & warm)" },
+  { id: "coral", label: "Coral (Female · Soft & clear)" },
+  { id: "nova", label: "Nova (Female · Bright & energetic)" },
+  { id: "shimmer", label: "Shimmer (Female · Expressive)" },
+  { id: "ash", label: "Ash (Male · Solemn, calm & reverent)" },
+  { id: "cedar", label: "Cedar (Male · Deep & resonant)" },
+  { id: "onyx", label: "Onyx (Male · Grounded & serious)" },
+  { id: "echo", label: "Echo (Male · Smooth & clear)" },
+];
+
+const GEMINI_VOICES = [
+  // Female
+  { id: "Sulafat", label: "Sulafat (Female · Warm & devotional)", gender: "female" },
+  { id: "Vindemiatrix", label: "Vindemiatrix (Female · Gentle & soft)", gender: "female" },
+  { id: "Aoede", label: "Aoede (Female · Breezy & serene)", gender: "female" },
+  { id: "Kore", label: "Kore (Female · Clear & solemn)", gender: "female" },
+  { id: "Despina", label: "Despina (Female · Smooth & reflective)", gender: "female" },
+  { id: "Achernar", label: "Achernar (Female · Soft & quiet)", gender: "female" },
+  { id: "Zephyr", label: "Zephyr (Female · Bright & uplifting)", gender: "female" },
+  // Male
+  { id: "Schedar", label: "Schedar (Male · Even, calm & measured)", gender: "male" },
+  { id: "Charon", label: "Charon (Male · Deep, solemn & contemplative)", gender: "male" },
+  { id: "Algieba", label: "Algieba (Male · Smooth & reverent)", gender: "male" },
+  { id: "Enceladus", label: "Enceladus (Male · Breathy & prayerful)", gender: "male" },
+  { id: "Iapetus", label: "Iapetus (Male · Clear & grounded)", gender: "male" },
+  { id: "Puck", label: "Puck (Male · Natural & warm)", gender: "male" },
+];
 
 export function NarrationManagerCard({
   contentId,
@@ -28,15 +49,64 @@ export function NarrationManagerCard({
   const profiles = audioMetadata.profiles || {};
   const hasAudio = Object.keys(profiles).length > 0 || Boolean(metadata?.audio_url);
   const currentDefaultProfile = (audioMetadata.default_profile as "gentle" | "solemn") || "gentle";
+  const activeProfileData = profiles[currentDefaultProfile] || (Object.values(profiles)[0] as any);
 
-  const [selectedProfile, setSelectedProfile] = useState<"gentle" | "solemn">(currentDefaultProfile);
-  const activeProfileData = profiles[selectedProfile] || profiles[currentDefaultProfile];
+  // Active generation choices (defaults to Studio presets, but customizable here)
+  const [selectedProvider, setSelectedProvider] = useState<"google" | "openai">("google");
+  const [selectedVoice, setSelectedVoice] = useState("Sulafat");
+  const [selectedSpeed, setSelectedSpeed] = useState(0.85);
+  const [showVoiceCustomizer, setShowVoiceCustomizer] = useState(false);
 
-  const [selectedVoice, setSelectedVoice] = useState(activeProfileData?.voice || "marin");
-  const [selectedSpeed, setSelectedSpeed] = useState<number>(activeProfileData?.speed || 0.85);
   const [isGenerating, setIsGenerating] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [charCount, setCharCount] = useState(0);
+
+  // Load configured default engine and voice from Voice Studio (automation_configs)
+  useEffect(() => {
+    async function loadStudioAudioConfig() {
+      try {
+        const supabase = requireSupabase();
+        const { data } = await supabase
+          .from("automation_configs")
+          .select("config_json")
+          .eq("content_type", "daily_prayer")
+          .maybeSingle();
+
+        const audioConfig = (data?.config_json?.audio as Record<string, any>) || {};
+        const studioProvider = (audioConfig.tts_provider as "google" | "openai") || "google";
+        
+        // If content already has a generated voice, honor it; otherwise load studio default
+        if (activeProfileData?.provider) {
+          setSelectedProvider(activeProfileData.provider as "google" | "openai");
+        } else {
+          setSelectedProvider(studioProvider);
+        }
+
+        if (activeProfileData?.voice) {
+          setSelectedVoice(activeProfileData.voice);
+        } else if (audioConfig.default_voice) {
+          const v = String(audioConfig.default_voice);
+          if (studioProvider === "google" && !GEMINI_VOICES.some((gv) => gv.id.toLowerCase() === v.toLowerCase())) {
+            setSelectedVoice("Sulafat");
+          } else {
+            setSelectedVoice(v);
+          }
+        } else {
+          setSelectedVoice(studioProvider === "google" ? "Sulafat" : "marin");
+        }
+
+        if (activeProfileData?.speed) {
+          setSelectedSpeed(activeProfileData.speed);
+        } else if (audioConfig.default_speed) {
+          setSelectedSpeed(Number(audioConfig.default_speed));
+        }
+      } catch (err) {
+        console.warn("Could not load Voice Studio audio config:", err);
+      }
+    }
+
+    loadStudioAudioConfig();
+  }, [activeProfileData?.provider, activeProfileData?.voice, activeProfileData?.speed]);
 
   // Hook to track the character count in real time from DOM inputs
   useEffect(() => {
@@ -63,8 +133,6 @@ export function NarrationManagerCard({
         if (closing) parts.push(closing);
 
         const assembledBody = parts.join("\n\n. . .\n\n");
-        
-        // Clean/normalize Amen padding like in the backend
         const base = assembledBody.replace(/(?:\s+|\n+)?amen[\.\!\?]*['"]?$/i, "").trim();
         const punctStripped = base.replace(/[\.\!\?\,]+$/, "");
         const bodyText = `${punctStripped}, Amen.`;
@@ -72,7 +140,6 @@ export function NarrationManagerCard({
         const textToNarrate = `${title}.\n\n${bodyText}`;
         total = textToNarrate.length;
       } else {
-        // Daily Prayer
         const base = body.replace(/(?:\s+|\n+)?amen[\.\!\?]*['"]?$/i, "").trim();
         const punctStripped = base.replace(/[\.\!\?\,]+$/, "");
         const bodyText = `${punctStripped}, Amen.`;
@@ -84,31 +151,12 @@ export function NarrationManagerCard({
       setCharCount(total);
     }
 
-    // Run once initially
     calculateCount();
-
-    // Listen to all inputs within document for changes
     document.addEventListener("input", calculateCount);
     return () => {
       document.removeEventListener("input", calculateCount);
     };
   }, [contentType]);
-
-  // Sync selected profile, voice, and speed when metadata changes
-  useEffect(() => {
-    if (audioMetadata.default_profile) {
-      setSelectedProfile(audioMetadata.default_profile as "gentle" | "solemn");
-    }
-  }, [audioMetadata.default_profile]);
-
-  useEffect(() => {
-    if (activeProfileData?.voice) {
-      setSelectedVoice(activeProfileData.voice);
-    }
-    if (activeProfileData?.speed) {
-      setSelectedSpeed(activeProfileData.speed);
-    }
-  }, [activeProfileData?.voice, activeProfileData?.speed, selectedProfile]);
 
   // Construct audio storage URL if available
   const storagePath = activeProfileData?.storage_path;
@@ -124,7 +172,7 @@ export function NarrationManagerCard({
 
     if (hasAudio) {
       const confirmed = window.confirm(
-        "An existing audio narration already exists for this prayer. Re-generating will overwrite the current audio and incur OpenAI TTS costs. Proceed?"
+        `An existing audio narration already exists for this content. Generating again with voice '${selectedVoice}' will overwrite the current audio. Proceed?`
       );
       if (!confirmed) return;
     }
@@ -144,7 +192,8 @@ export function NarrationManagerCard({
         },
         body: JSON.stringify({
           contentId,
-          profile: selectedProfile,
+          profile: currentDefaultProfile,
+          provider: selectedProvider,
           voice: selectedVoice,
           speed: selectedSpeed,
         }),
@@ -155,9 +204,10 @@ export function NarrationManagerCard({
         throw new Error(data.error || "Failed to generate narration.");
       }
 
+      const engineName = selectedProvider === "google" ? "Google Gemini" : "OpenAI";
       setMessage({
         type: "success",
-        text: `OpenAI TTS Narration generated successfully using '${selectedVoice}' voice!`,
+        text: `Audio narration generated successfully via ${engineName} (${selectedVoice})!`,
       });
 
       if (onNarrationUpdated) {
@@ -175,28 +225,26 @@ export function NarrationManagerCard({
 
   return (
     <div className="card space-y-4">
-      {/* Clean Header Bar */}
+      {/* Header Bar */}
       <div className="flex items-center justify-between border-b border-line pb-3">
         <div className="flex items-center gap-2">
-          <span className="text-lg">🎙️</span>
-          <h3 className="text-base font-bold text-ink m-0 p-0 leading-tight">
-            OpenAI Audio Narration
+          <span className="text-base leading-none">🎙️</span>
+          <h3 className="text-sm font-semibold tracking-tight text-ink m-0 p-0 leading-none">
+            Audio Narration
           </h3>
         </div>
 
-        <div className="flex items-center">
-          {hasAudio ? (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              Ready
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
-              <span className="w-2 h-2 rounded-full bg-amber-400"></span>
-              No Audio
-            </span>
-          )}
-        </div>
+        {hasAudio ? (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse"></span>
+            Ready
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap bg-stone-100 text-stone-600 border border-stone-200">
+            <span className="w-1.5 h-1.5 rounded-full bg-stone-400 shrink-0"></span>
+            No Audio
+          </span>
+        )}
       </div>
 
       {message && (
@@ -211,91 +259,182 @@ export function NarrationManagerCard({
         </div>
       )}
 
-      {/* Audio Player Card */}
-      {publicAudioUrl && (
-        <div className="bg-beige/40 rounded-xl p-3.5 border border-line space-y-2.5">
-          <div className="flex items-center justify-between text-xs text-muted">
-            <span>Voice: <strong className="text-ink font-semibold">{activeProfileData?.voice || selectedVoice}</strong></span>
-            <span>Model: <strong className="text-ink font-semibold">{activeProfileData?.model || "gpt-4o-mini-tts"}</strong></span>
+      {/* Audio Player & Active Configuration */}
+      <div className="bg-ivory/80 rounded-xl p-3.5 border border-line space-y-3">
+        {/* Voice, Engine & Speed display with Change Voice toggle */}
+        <div className="flex items-center justify-between border-b border-line/60 pb-2.5">
+          <div className="grid grid-cols-3 gap-3 text-xs flex-1">
+            <div>
+              <span className="text-muted block text-[10px] uppercase font-semibold tracking-wider">Voice</span>
+              <strong className="text-ink font-semibold truncate block">
+                {selectedVoice}
+              </strong>
+            </div>
+            <div>
+              <span className="text-muted block text-[10px] uppercase font-semibold tracking-wider">Engine</span>
+              <strong className="text-ink font-semibold truncate block">
+                {selectedProvider === "google" ? "Google Gemini" : "OpenAI"}
+              </strong>
+            </div>
+            <div>
+              <span className="text-muted block text-[10px] uppercase font-semibold tracking-wider">Speed</span>
+              <strong className="text-ink font-semibold truncate block">
+                {selectedSpeed}x
+              </strong>
+            </div>
           </div>
+
+          <button
+            type="button"
+            className="text-xs text-wine font-medium hover:underline ml-2 cursor-pointer whitespace-nowrap"
+            onClick={() => setShowVoiceCustomizer(!showVoiceCustomizer)}
+          >
+            {showVoiceCustomizer ? "Done" : "Change ▾"}
+          </button>
+        </div>
+
+        {/* Expandable Voice & Engine Customizer */}
+        {showVoiceCustomizer && (
+          <div className="p-3 bg-white rounded-lg border border-line space-y-3 text-xs">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[11px] font-semibold text-ink mb-1">TTS Engine</label>
+                <select
+                  className="input text-xs bg-ivory py-1.5 px-2"
+                  value={selectedProvider}
+                  onChange={(e) => {
+                    const p = e.target.value as "google" | "openai";
+                    setSelectedProvider(p);
+                    setSelectedVoice(p === "google" ? "Sulafat" : "marin");
+                  }}
+                >
+                  <option value="google">Google Gemini 3.1 Flash</option>
+                  <option value="openai">OpenAI TTS</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-ink mb-1">Narration Speed</label>
+                <select
+                  className="input text-xs bg-ivory py-1.5 px-2"
+                  value={selectedSpeed}
+                  onChange={(e) => setSelectedSpeed(Number(e.target.value))}
+                >
+                  <option value={0.75}>0.75x (Unhurried)</option>
+                  <option value={0.85}>0.85x (Prayer Pace)</option>
+                  <option value={1.00}>1.00x (Normal)</option>
+                  <option value={1.15}>1.15x (Brisk)</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-semibold text-ink mb-1">Voice Selection</label>
+              <select
+                className="input text-xs bg-ivory py-1.5 px-2 w-full font-medium"
+                value={selectedVoice}
+                onChange={(e) => setSelectedVoice(e.target.value)}
+              >
+                {selectedProvider === "google" ? (
+                  <>
+                    <optgroup label="── 👩 Female Voices ──">
+                      {GEMINI_VOICES.filter((v) => v.gender === "female").map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {v.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="── 👨 Male Voices ──">
+                      {GEMINI_VOICES.filter((v) => v.gender === "male").map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {v.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  </>
+                ) : (
+                  <>
+                    <optgroup label="── 👩 Female Voices ──">
+                      {OPENAI_VOICES.filter((v) => v.label.includes("Female")).map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {v.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="── 👨 Male Voices ──">
+                      {OPENAI_VOICES.filter((v) => v.label.includes("Male")).map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {v.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  </>
+                )}
+              </select>
+            </div>
+          </div>
+        )}
+
+        {/* Audio Player (Always visible) */}
+        {publicAudioUrl ? (
           <audio controls src={publicAudioUrl} className="w-full h-9 rounded-lg accent-wine" />
-        </div>
-      )}
-
-      {/* Form Controls */}
-      <div className="space-y-4 pt-1">
-        <Field label="Voice Profile" help="Select tone profile style">
-          <select
-            className="select w-full cursor-pointer bg-white"
-            value={selectedProfile}
-            onChange={(e) => setSelectedProfile(e.target.value as "gentle" | "solemn")}
-          >
-            <option value="gentle">Gentle (Calm & Prayerful)</option>
-            <option value="solemn">Solemn (Reverent & Deep)</option>
-          </select>
-        </Field>
-
-        <Field label="OpenAI Voice" help="Select specific voice for this prayer">
-          <select
-            className="select w-full cursor-pointer bg-white"
-            value={selectedVoice}
-            onChange={(e) => setSelectedVoice(e.target.value)}
-          >
-            {OPENAI_VOICES.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.label}
-              </option>
-            ))}
-          </select>
-        </Field>
-
-        <Field label="Narration Speed" help="Controls speech rate of generated audio narration">
-          <select
-            className="select w-full cursor-pointer bg-white"
-            value={selectedSpeed}
-            onChange={(e) => setSelectedSpeed(Number(e.target.value))}
-          >
-            <option value={0.75}>0.75x (Calm & Unhurried)</option>
-            <option value={0.85}>0.85x (Prayer Pace - Recommended)</option>
-            <option value={1.00}>1.00x (Normal Default)</option>
-            <option value={1.15}>1.15x (Brisk)</option>
-          </select>
-        </Field>
-
-        {/* Real-time Character Counter warning */}
-        <div className="pt-1">
-          <div className="flex items-center justify-between text-xs font-semibold mb-1">
-            <span className="text-muted">Total Script Length:</span>
-            <span className={charCount > 1200 ? "text-rose-600 font-bold" : "text-emerald-600"}>
-              {charCount.toLocaleString()} / 1,200 chars
+        ) : (
+          <div className="flex items-center justify-between px-3 py-2 bg-stone-100/70 border border-dashed border-stone-200 rounded-lg text-xs text-stone-500">
+            <span className="flex items-center gap-1.5">
+              <span>🔇</span>
+              <span>No audio generated yet</span>
             </span>
+            <span className="text-[11px] text-stone-400">Press generate below</span>
           </div>
-          {charCount > 1200 ? (
-            <p className="text-[10px] text-rose-500 font-medium leading-relaxed bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/30 p-2 rounded-lg">
-              ⚠️ Warning: Script exceeds 1,200 characters. There is a high risk that the TTS model will cut off or swallow the final word "Amen". Consider shortening the text.
-            </p>
-          ) : (
-            <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium leading-relaxed bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 p-2 rounded-lg">
-              ✓ Length is optimal. The TTS model should generate the audio stable and speak "Amen" cleanly.
-            </p>
-          )}
-        </div>
+        )}
+      </div>
 
+      {/* Script Length Status */}
+      <div className="pt-1">
+        <div className="flex items-center justify-between text-xs font-semibold mb-1">
+          <span className="text-muted">Script Length:</span>
+          <span className={charCount > 1200 ? "text-rose-600 font-bold" : "text-emerald-600"}>
+            {charCount.toLocaleString()} / 1,200 chars
+          </span>
+        </div>
+        {charCount > 1200 && (
+          <p className="text-[10px] text-rose-500 font-medium leading-relaxed bg-rose-50 border border-rose-100 p-2 rounded-lg">
+            ⚠️ Warning: Script exceeds 1,200 characters. Consider shortening before generating audio.
+          </p>
+        )}
+      </div>
+
+      {/* Single Generation Button */}
+      <div className="pt-1 space-y-2">
         <button
           type="button"
-          className="button primary w-full py-2.5 text-sm font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all shadow-xs"
+          className="button primary w-full py-2.5 text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all shadow-xs"
           onClick={handleGenerateNarration}
           disabled={isGenerating || !contentId}
         >
           {isGenerating ? (
-            <span className="flex items-center gap-2">
+            <>
               <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-              Generating OpenAI Audio…
-            </span>
+              Generating {selectedProvider === "google" ? "Gemini" : "OpenAI"} Audio…
+            </>
           ) : (
-            <span>{hasAudio ? "🔄 Re-generate Narration" : "✦ Generate OpenAI Narration"}</span>
+            <span>
+              {hasAudio
+                ? `🔄 Re-generate Audio (${selectedVoice})`
+                : `✦ Generate Audio (${selectedVoice})`}
+            </span>
           )}
         </button>
+
+        <div className="text-center">
+          <a
+            href="/settings/voice-studio"
+            className="text-[11px] text-muted hover:text-wine inline-flex items-center gap-1 transition-colors"
+          >
+            <span>Audition voices &amp; adjust studio defaults in Voice Studio</span>
+            <span aria-hidden="true">↗</span>
+          </a>
+        </div>
       </div>
     </div>
   );

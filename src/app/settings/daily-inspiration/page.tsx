@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 
-// Daily Inspiration is created as Today-feed editorial content, not configured
-// as part of Prayer Studio. Preserve old bookmarks without maintaining a second UI.
+// Daily Inspiration image generation defaults are configured in Image Studio.
 export default function DailyInspirationSettingsPage() {
-  redirect("/content/new?type=daily_inspiration");
+  redirect("/settings/image-studio");
 }

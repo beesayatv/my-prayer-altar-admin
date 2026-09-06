@@ -4,6 +4,7 @@ export interface GenerateUpdateInput {
   url: string;
   textContent: string;
   length?: "short" | "standard" | "long";
+  model?: string;
 }
 
 export interface GeneratedUpdateResult {
@@ -34,12 +35,8 @@ Return a JSON object with these exact string keys:
 export async function generateUpdateDraft(
   input: GenerateUpdateInput
 ): Promise<GeneratedUpdateResult> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      "OPENAI_API_KEY environment variable is missing on the server. Please set it in your server configuration."
-    );
-  }
+  const configuredModel = input.model?.trim() || "gemini-2.5-flash";
+  const isGemini = configuredModel.toLowerCase().startsWith("gemini");
 
   const targetLength =
     input.length === "short"
@@ -62,78 +59,158 @@ ${input.textContent.slice(0, 30000)}
 Ensure the response is ONLY valid JSON with keys: "title", "slug", "excerpt", "body".
 `.trim();
 
-  const configuredModel = "gpt-4o-mini";
-  let response: Response;
+  let rawContent: string | undefined;
+  let promptTokens: number | null = null;
+  let completionTokens: number | null = null;
+  let totalTokens: number | null = null;
+  let requestId: string | null = null;
+  const providerName = isGemini ? "google" : "openai";
 
-  try {
-    response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+  if (isGemini) {
+    const geminiApiKey = process.env.GEMINI_API_KEY;
+    if (!geminiApiKey) {
+      throw new Error(
+        "GEMINI_API_KEY environment variable is missing on the server. Please set it in your server configuration."
+      );
+    }
+
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${configuredModel}:generateContent?key=${geminiApiKey}`;
+
+    const bodyPayload = {
+      systemInstruction: {
+        parts: [{ text: UPDATE_SYSTEM_PROMPT }],
       },
-      body: JSON.stringify({
-        model: configuredModel,
-        response_format: {
-          type: "json_schema",
-          json_schema: {
-            name: "update_schema",
-            strict: true,
-            schema: {
-              type: "object",
-              properties: {
-                title: { type: "string" },
-                slug: { type: "string" },
-                excerpt: { type: "string" },
-                body: { type: "string" }
-              },
-              required: ["title", "slug", "excerpt", "body"],
-              additionalProperties: false
-            }
-          }
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: userPrompt }],
         },
-        messages: [
-          { role: "system", content: UPDATE_SYSTEM_PROMPT },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: 0.3, // Lower temperature for more factual extraction
-      }),
-    });
-  } catch (err) {
-    await safeLogAdminAiUsage({
-      feature: "update_url_import",
-      model: configuredModel,
-      status: "failed",
-      error_code: "network_error",
-    });
-    throw err;
+      ],
+      generationConfig: {
+        responseMimeType: "application/json",
+        temperature: 0.3,
+      },
+    };
+
+    let response: Response;
+    try {
+      response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(bodyPayload),
+      });
+    } catch (err) {
+      await safeLogAdminAiUsage({
+        feature: "update_url_import",
+        provider: "google",
+        model: configuredModel,
+        status: "failed",
+        error_code: "network_error",
+      });
+      throw err;
+    }
+
+    if (!response.ok) {
+      const errText = await response.text();
+      await safeLogAdminAiUsage({
+        feature: "update_url_import",
+        provider: "google",
+        model: configuredModel,
+        status: "failed",
+        error_code: `gemini_http_${response.status}`,
+      });
+      throw new Error(`Google Gemini API error (${response.status}): ${errText}`);
+    }
+
+    const geminiData = await response.json();
+    promptTokens = geminiData.usageMetadata?.promptTokenCount ?? null;
+    completionTokens = geminiData.usageMetadata?.candidatesTokenCount ?? null;
+    totalTokens = geminiData.usageMetadata?.totalTokenCount ?? null;
+
+    rawContent = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
+  } else {
+    // OpenAI routing
+    const openAiApiKey = process.env.OPENAI_API_KEY;
+    if (!openAiApiKey) {
+      throw new Error(
+        "OPENAI_API_KEY environment variable is missing on the server. Please set it in your server configuration."
+      );
+    }
+
+    let response: Response;
+    try {
+      response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${openAiApiKey}`,
+        },
+        body: JSON.stringify({
+          model: configuredModel,
+          response_format: {
+            type: "json_schema",
+            json_schema: {
+              name: "update_schema",
+              strict: true,
+              schema: {
+                type: "object",
+                properties: {
+                  title: { type: "string" },
+                  slug: { type: "string" },
+                  excerpt: { type: "string" },
+                  body: { type: "string" },
+                },
+                required: ["title", "slug", "excerpt", "body"],
+                additionalProperties: false,
+              },
+            },
+          },
+          messages: [
+            { role: "system", content: UPDATE_SYSTEM_PROMPT },
+            { role: "user", content: userPrompt },
+          ],
+          temperature: 0.3,
+        }),
+      });
+    } catch (err) {
+      await safeLogAdminAiUsage({
+        feature: "update_url_import",
+        provider: "openai",
+        model: configuredModel,
+        status: "failed",
+        error_code: "network_error",
+      });
+      throw err;
+    }
+
+    requestId = response.headers.get("x-request-id") || null;
+
+    if (!response.ok) {
+      const errText = await response.text();
+      await safeLogAdminAiUsage({
+        feature: "update_url_import",
+        provider: "openai",
+        model: configuredModel,
+        status: "failed",
+        error_code: `openai_http_${response.status}`,
+        request_id: requestId,
+      });
+      throw new Error(`OpenAI API error (${response.status}): ${errText}`);
+    }
+
+    const openAiData = await response.json();
+    promptTokens = openAiData.usage?.prompt_tokens ?? null;
+    completionTokens = openAiData.usage?.completion_tokens ?? null;
+    totalTokens = openAiData.usage?.total_tokens ?? null;
+
+    rawContent = openAiData.choices?.[0]?.message?.content;
   }
 
-  const requestId = response.headers.get("x-request-id") || null;
-
-  if (!response.ok) {
-    const errText = await response.text();
-    await safeLogAdminAiUsage({
-      feature: "update_url_import",
-      model: configuredModel,
-      status: "failed",
-      error_code: `openai_http_${response.status}`,
-      request_id: requestId,
-    });
-    throw new Error(`OpenAI API error (${response.status}): ${errText}`);
-  }
-
-  const data = await response.json();
-  const usedModel = data.model || configuredModel;
-  const promptTokens = data.usage?.prompt_tokens ?? null;
-  const completionTokens = data.usage?.completion_tokens ?? null;
-  const totalTokens = data.usage?.total_tokens ?? null;
-
-  const rawContent = data.choices?.[0]?.message?.content;
   if (!rawContent) {
     await safeLogAdminAiUsage({
       feature: "update_url_import",
-      model: usedModel,
+      provider: providerName,
+      model: configuredModel,
       input_tokens: promptTokens,
       output_tokens: completionTokens,
       total_tokens: totalTokens,
@@ -141,7 +218,7 @@ Ensure the response is ONLY valid JSON with keys: "title", "slug", "excerpt", "b
       error_code: "empty_content",
       request_id: requestId,
     });
-    throw new Error("No content returned from OpenAI service.");
+    throw new Error(`No content returned from ${providerName === "google" ? "Google Gemini" : "OpenAI"} service.`);
   }
 
   let parsed: Partial<GeneratedUpdateResult>;
@@ -150,7 +227,8 @@ Ensure the response is ONLY valid JSON with keys: "title", "slug", "excerpt", "b
   } catch {
     await safeLogAdminAiUsage({
       feature: "update_url_import",
-      model: usedModel,
+      provider: providerName,
+      model: configuredModel,
       input_tokens: promptTokens,
       output_tokens: completionTokens,
       total_tokens: totalTokens,
@@ -164,7 +242,8 @@ Ensure the response is ONLY valid JSON with keys: "title", "slug", "excerpt", "b
   if (!parsed.title || !parsed.slug || !parsed.excerpt || !parsed.body) {
     await safeLogAdminAiUsage({
       feature: "update_url_import",
-      model: usedModel,
+      provider: providerName,
+      model: configuredModel,
       input_tokens: promptTokens,
       output_tokens: completionTokens,
       total_tokens: totalTokens,
@@ -177,7 +256,8 @@ Ensure the response is ONLY valid JSON with keys: "title", "slug", "excerpt", "b
 
   await safeLogAdminAiUsage({
     feature: "update_url_import",
-    model: usedModel,
+    provider: providerName,
+    model: configuredModel,
     input_tokens: promptTokens,
     output_tokens: completionTokens,
     total_tokens: totalTokens,

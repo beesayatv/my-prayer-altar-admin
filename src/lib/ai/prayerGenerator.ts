@@ -8,6 +8,7 @@ export interface GeneratePrayerInput {
   inspiration?: string;
   recentTopics?: string[];
   systemPrompt?: string;
+  model?: string;
 }
 
 export interface GeneratedPrayerResult {
@@ -40,12 +41,8 @@ Return a JSON object with these exact string keys:
 export async function generatePrayerDraft(
   input: GeneratePrayerInput
 ): Promise<GeneratedPrayerResult> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      "OPENAI_API_KEY environment variable is missing on the server. Please set it in your server configuration."
-    );
-  }
+  const configuredModel = input.model?.trim() || "gemini-2.5-flash";
+  const isGemini = configuredModel.toLowerCase().startsWith("gemini");
 
   const langName =
     input.language === "ceb"
@@ -75,61 +72,144 @@ Ensure the response is ONLY valid JSON with keys: "title", "intention", "excerpt
 `.trim();
 
   const systemInstruction = input.systemPrompt?.trim() || DEFAULT_EDITORIAL_PROMPT;
-  const configuredModel = "gpt-4o-mini";
-  let response: Response;
 
-  try {
-    response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+  let rawContent: string | undefined;
+  let promptTokens: number | null = null;
+  let completionTokens: number | null = null;
+  let totalTokens: number | null = null;
+  let requestId: string | null = null;
+  let providerName = isGemini ? "google" : "openai";
+
+  if (isGemini) {
+    const geminiApiKey = process.env.GEMINI_API_KEY;
+    if (!geminiApiKey) {
+      throw new Error(
+        "GEMINI_API_KEY environment variable is missing on the server. Please set it in your server configuration."
+      );
+    }
+
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${configuredModel}:generateContent?key=${geminiApiKey}`;
+
+    const bodyPayload = {
+      systemInstruction: {
+        parts: [{ text: systemInstruction }],
       },
-      body: JSON.stringify({
-        model: configuredModel,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: systemInstruction },
-          { role: "user", content: userPrompt },
-        ],
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: userPrompt }],
+        },
+      ],
+      generationConfig: {
+        responseMimeType: "application/json",
         temperature: 0.7,
-      }),
-    });
-  } catch (err) {
-    await safeLogAdminAiUsage({
-      feature: "daily_prayer",
-      model: configuredModel,
-      status: "failed",
-      error_code: "network_error",
-    });
-    throw err;
+      },
+    };
+
+    let response: Response;
+    try {
+      response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(bodyPayload),
+      });
+    } catch (err) {
+      await safeLogAdminAiUsage({
+        feature: "daily_prayer",
+        provider: "google",
+        model: configuredModel,
+        status: "failed",
+        error_code: "network_error",
+      });
+      throw err;
+    }
+
+    if (!response.ok) {
+      const errText = await response.text();
+      await safeLogAdminAiUsage({
+        feature: "daily_prayer",
+        provider: "google",
+        model: configuredModel,
+        status: "failed",
+        error_code: `gemini_http_${response.status}`,
+      });
+      throw new Error(`Google Gemini API error (${response.status}): ${errText}`);
+    }
+
+    const geminiData = await response.json();
+    promptTokens = geminiData.usageMetadata?.promptTokenCount ?? null;
+    completionTokens = geminiData.usageMetadata?.candidatesTokenCount ?? null;
+    totalTokens = geminiData.usageMetadata?.totalTokenCount ?? null;
+
+    rawContent = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
+  } else {
+    // OpenAI routing
+    const openAiApiKey = process.env.OPENAI_API_KEY;
+    if (!openAiApiKey) {
+      throw new Error(
+        "OPENAI_API_KEY environment variable is missing on the server. Please set it in your server configuration."
+      );
+    }
+
+    let response: Response;
+    try {
+      response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${openAiApiKey}`,
+        },
+        body: JSON.stringify({
+          model: configuredModel,
+          response_format: { type: "json_object" },
+          messages: [
+            { role: "system", content: systemInstruction },
+            { role: "user", content: userPrompt },
+          ],
+          temperature: 0.7,
+        }),
+      });
+    } catch (err) {
+      await safeLogAdminAiUsage({
+        feature: "daily_prayer",
+        provider: "openai",
+        model: configuredModel,
+        status: "failed",
+        error_code: "network_error",
+      });
+      throw err;
+    }
+
+    requestId = response.headers.get("x-request-id") || null;
+
+    if (!response.ok) {
+      const errText = await response.text();
+      await safeLogAdminAiUsage({
+        feature: "daily_prayer",
+        provider: "openai",
+        model: configuredModel,
+        status: "failed",
+        error_code: `openai_http_${response.status}`,
+        request_id: requestId,
+      });
+      throw new Error(`OpenAI API error (${response.status}): ${errText}`);
+    }
+
+    const openAiData = await response.json();
+    promptTokens = openAiData.usage?.prompt_tokens ?? null;
+    completionTokens = openAiData.usage?.completion_tokens ?? null;
+    totalTokens = openAiData.usage?.total_tokens ?? null;
+
+    rawContent = openAiData.choices?.[0]?.message?.content;
   }
 
-  const requestId = response.headers.get("x-request-id") || null;
-
-  if (!response.ok) {
-    const errText = await response.text();
-    await safeLogAdminAiUsage({
-      feature: "daily_prayer",
-      model: configuredModel,
-      status: "failed",
-      error_code: `openai_http_${response.status}`,
-      request_id: requestId,
-    });
-    throw new Error(`OpenAI API error (${response.status}): ${errText}`);
-  }
-
-  const data = await response.json();
-  const usedModel = data.model || configuredModel;
-  const promptTokens = data.usage?.prompt_tokens ?? null;
-  const completionTokens = data.usage?.completion_tokens ?? null;
-  const totalTokens = data.usage?.total_tokens ?? null;
-
-  const rawContent = data.choices?.[0]?.message?.content;
   if (!rawContent) {
     await safeLogAdminAiUsage({
       feature: "daily_prayer",
-      model: usedModel,
+      provider: providerName,
+      model: configuredModel,
       input_tokens: promptTokens,
       output_tokens: completionTokens,
       total_tokens: totalTokens,
@@ -137,7 +217,7 @@ Ensure the response is ONLY valid JSON with keys: "title", "intention", "excerpt
       error_code: "empty_content",
       request_id: requestId,
     });
-    throw new Error("No content returned from OpenAI service.");
+    throw new Error(`No content returned from ${providerName === "google" ? "Google Gemini" : "OpenAI"} service.`);
   }
 
   let parsed: Partial<GeneratedPrayerResult>;
@@ -146,7 +226,8 @@ Ensure the response is ONLY valid JSON with keys: "title", "intention", "excerpt
   } catch {
     await safeLogAdminAiUsage({
       feature: "daily_prayer",
-      model: usedModel,
+      provider: providerName,
+      model: configuredModel,
       input_tokens: promptTokens,
       output_tokens: completionTokens,
       total_tokens: totalTokens,
@@ -160,7 +241,8 @@ Ensure the response is ONLY valid JSON with keys: "title", "intention", "excerpt
   if (!parsed.title || !parsed.body) {
     await safeLogAdminAiUsage({
       feature: "daily_prayer",
-      model: usedModel,
+      provider: providerName,
+      model: configuredModel,
       input_tokens: promptTokens,
       output_tokens: completionTokens,
       total_tokens: totalTokens,
@@ -173,7 +255,8 @@ Ensure the response is ONLY valid JSON with keys: "title", "intention", "excerpt
 
   await safeLogAdminAiUsage({
     feature: "daily_prayer",
-    model: usedModel,
+    provider: providerName,
+    model: configuredModel,
     input_tokens: promptTokens,
     output_tokens: completionTokens,
     total_tokens: totalTokens,

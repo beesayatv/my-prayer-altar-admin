@@ -18,9 +18,10 @@ export async function POST(request: Request) {
 
     // 2. Parse request payload
     const body = await request.json();
-    const { contentId, profile, voice, model, speed } = body as {
+    const { contentId, profile, provider, voice, model, speed } = body as {
       contentId?: string;
       profile?: "gentle" | "solemn";
+      provider?: "google" | "openai";
       voice?: string;
       model?: string;
       speed?: number;
@@ -84,7 +85,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // 4. Generate audio narration via current OpenAI speech model & upload to Supabase Storage
+    // 4. Generate audio narration via selected provider & upload to Bunny Storage
     const result = await generateAndStoreProfileNarration(
       {
         contentId: item.id,
@@ -92,6 +93,7 @@ export async function POST(request: Request) {
         body: assembledBody,
         contentType: item.type,
         profile: profile || "gentle",
+        provider,
         voice,
         model,
         speed: speed ? Number(speed) : undefined,

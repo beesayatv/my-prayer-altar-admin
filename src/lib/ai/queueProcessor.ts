@@ -309,7 +309,11 @@ export async function processDailyPrayerQueue(
         let intentionInput = "Daily Peace and Guidance";
         let inspirationInput = "";
 
-        const customSystemPrompt = (config?.config_json?.custom_system_instruction as string) || undefined;
+        const customSystemPrompt =
+          (config?.config_json?.custom_system_instruction as string) ||
+          (config?.config_json?.ai as any)?.prompt ||
+          undefined;
+        const configuredAiModel = (config?.config_json?.ai as any)?.model || undefined;
         const customWeeklyIntentions = (config?.config_json?.weekly_intentions as Record<string, { intention: string; theme: string }>) || null;
 
         if (configSummary.theme_strategy === "rotation_enabled") {
@@ -332,6 +336,7 @@ export async function processDailyPrayerQueue(
           inspiration: inspirationInput || undefined,
           recentTopics: existingTitles.slice(-10),
           systemPrompt: customSystemPrompt,
+          model: configuredAiModel,
         });
 
         // Validate draft
@@ -426,9 +431,10 @@ export async function processDailyPrayerQueue(
                   title: draft.title,
                   body: draft.body,
                   profile: (audioConfig.default_profile as "gentle" | "solemn") || "gentle",
-                  voice: audioConfig.default_voice || "coral",
+                  provider: (audioConfig.tts_provider as "google" | "openai") || "google",
+                  voice: audioConfig.default_voice || (audioConfig.tts_provider === "openai" ? "coral" : "Sulafat"),
                   speed: audioConfig.default_speed ? Number(audioConfig.default_speed) : 0.85,
-                  model: audioConfig.tts_model || "gpt-4o-mini-tts",
+                  model: audioConfig.tts_model,
                 },
                 supabase
               );

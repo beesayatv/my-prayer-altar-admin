@@ -1,4 +1,6 @@
 import crypto from "node:crypto";
+// @ts-ignore - lamejs lacks bundled type definitions
+import lamejs from "lamejs";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { bunnyPublicUrl, deleteFromBunny, uploadToBunny } from "@/lib/bunnyStorage";
 
@@ -8,6 +10,7 @@ export interface GenerateNarrationInput {
   body: string;
   contentType?: string;
   profile?: "gentle" | "solemn";
+  provider?: "google" | "openai";
   voice?: string;
   model?: string;
   speed?: number;
@@ -17,6 +20,7 @@ export interface GenerateNarrationInput {
 export interface ProfileNarrationMetadata {
   storage_path: string;
   public_url?: string;
+  provider?: "google" | "openai";
   voice: string;
   model: string;
   speed?: number;
@@ -136,19 +140,218 @@ export async function callOpenAISpeechAPI(
   return Buffer.from(arrayBuffer);
 }
 
+export const DEFAULT_GEMINI_TTS_MODEL = "gemini-3.1-flash-tts-preview";
+
+export const GEMINI_TTS_VOICES = [
+  // Female voices
+  { id: "Sulafat", label: "Sulafat (Female · Warm & devotional)", gender: "female" },
+  { id: "Vindemiatrix", label: "Vindemiatrix (Female · Gentle & soft)", gender: "female" },
+  { id: "Aoede", label: "Aoede (Female · Breezy & serene)", gender: "female" },
+  { id: "Kore", label: "Kore (Female · Clear & firm solemn)", gender: "female" },
+  { id: "Despina", label: "Despina (Female · Smooth & reflective)", gender: "female" },
+  { id: "Achernar", label: "Achernar (Female · Soft & quiet)", gender: "female" },
+  { id: "Zephyr", label: "Zephyr (Female · Bright & uplifting)", gender: "female" },
+  // Male voices
+  { id: "Schedar", label: "Schedar (Male · Even, calm & measured)", gender: "male" },
+  { id: "Charon", label: "Charon (Male · Deep, solemn & contemplative)", gender: "male" },
+  { id: "Algieba", label: "Algieba (Male · Smooth & reverent)", gender: "male" },
+  { id: "Enceladus", label: "Enceladus (Male · Breathy & prayerful)", gender: "male" },
+  { id: "Iapetus", label: "Iapetus (Male · Clear & grounded)", gender: "male" },
+  { id: "Puck", label: "Puck (Male · Natural & warm)", gender: "male" },
+];
+
+/**
+ * Encodes 16-bit linear PCM audio into compressed MP3 format using lamejs.
+ * Compresses raw 24kHz PCM from ~4-8MB down to ~300-500KB (over 85% size reduction).
+ */
+export function encodePcmToMp3(
+  pcmBuffer: Buffer,
+  sampleRate: number = 24000,
+  numChannels: number = 1,
+  kbps: number = 128
+): Buffer {
+  try {
+    const mp3encoder = new lamejs.Mp3Encoder(numChannels, sampleRate, kbps);
+    const samples = new Int16Array(
+      pcmBuffer.buffer,
+      pcmBuffer.byteOffset,
+      Math.floor(pcmBuffer.byteLength / 2)
+    );
+
+    const mp3Data: Uint8Array[] = [];
+    const sampleBlockSize = 1152;
+    for (let i = 0; i < samples.length; i += sampleBlockSize) {
+      const sampleChunk = samples.subarray(i, i + sampleBlockSize);
+      const mp3buf = mp3encoder.encodeBuffer(sampleChunk);
+      if (mp3buf && mp3buf.length > 0) {
+        mp3Data.push(new Uint8Array(mp3buf));
+      }
+    }
+
+    const mp3buf = mp3encoder.flush();
+    if (mp3buf && mp3buf.length > 0) {
+      mp3Data.push(new Uint8Array(mp3buf));
+    }
+
+    return Buffer.concat(mp3Data);
+  } catch (err) {
+    console.error("PCM to MP3 compression fallback to WAV:", err);
+    const header = createWavHeader(pcmBuffer.length, sampleRate, numChannels, 16);
+    return Buffer.concat([header, pcmBuffer]);
+  }
+}
+
+/**
+ * Creates standard 44-byte RIFF/WAVE header for linear PCM raw audio.
+ */
+export function createWavHeader(
+  pcmLength: number,
+  sampleRate: number = 24000,
+  numChannels: number = 1,
+  bitsPerSample: number = 16
+): Buffer {
+  const byteRate = (sampleRate * numChannels * bitsPerSample) / 8;
+  const blockAlign = (numChannels * bitsPerSample) / 8;
+  const buffer = Buffer.alloc(44);
+  buffer.write("RIFF", 0);
+  buffer.writeUInt32LE(36 + pcmLength, 4);
+  buffer.write("WAVE", 8);
+  buffer.write("fmt ", 12);
+  buffer.writeUInt32LE(16, 16);
+  buffer.writeUInt16LE(1, 20); // Linear PCM
+  buffer.writeUInt16LE(numChannels, 22);
+  buffer.writeUInt32LE(sampleRate, 24);
+  buffer.writeUInt32LE(byteRate, 28);
+  buffer.writeUInt16LE(blockAlign, 32);
+  buffer.writeUInt16LE(bitsPerSample, 34);
+  buffer.write("data", 36);
+  buffer.writeUInt32LE(pcmLength, 40);
+  return buffer;
+}
+
+/**
+ * Direct fetch request helper for Google Gemini 3.1 Flash TTS API.
+ * Uses generateContent with responseModalities: ["AUDIO"] and speechConfig.
+ */
+export async function callGeminiFlashTTS(
+  apiKey: string,
+  payload: {
+    model?: string;
+    voice: string;
+    input: string;
+    instructions?: string;
+    format?: "mp3" | "wav";
+  },
+  featureName: string = "audio_narration",
+  customFetch?: typeof fetch
+): Promise<Buffer> {
+  const fetchImpl = customFetch || fetch;
+  const model = payload.model || DEFAULT_GEMINI_TTS_MODEL;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+  // Combine instructions with input text for natural delivery
+  const promptText = payload.instructions
+    ? `${payload.instructions.trim()}\n\nText to read:\n"${payload.input.trim()}"`
+    : payload.input.trim();
+
+  const reqBody = {
+    contents: [
+      {
+        role: "user",
+        parts: [{ text: promptText }],
+      },
+    ],
+    generationConfig: {
+      responseModalities: ["AUDIO"],
+      speechConfig: {
+        voiceConfig: {
+          prebuiltVoiceConfig: {
+            voiceName: payload.voice || "Sulafat",
+          },
+        },
+      },
+    },
+  };
+
+  let response: Response;
+  try {
+    response = await fetchImpl(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(reqBody),
+      signal: AbortSignal.timeout(60000),
+    });
+  } catch (err) {
+    await safeLogAdminAiUsage({
+      feature: featureName,
+      provider: "google",
+      model,
+      input_tokens: payload.input.length,
+      status: "failed",
+      error_code: "network_error",
+    });
+    throw err;
+  }
+
+  if (!response.ok) {
+    const errText = await response.text();
+    await safeLogAdminAiUsage({
+      feature: featureName,
+      provider: "google",
+      model,
+      input_tokens: payload.input.length,
+      status: "failed",
+      error_code: `gemini_tts_http_${response.status}`,
+    });
+    throw new Error(`Gemini TTS API error (${response.status}): ${errText}`);
+  }
+
+  const data = await response.json();
+  const part = data.candidates?.[0]?.content?.parts?.[0];
+  const base64Audio = part?.inlineData?.data;
+
+  if (!base64Audio) {
+    throw new Error("Gemini TTS response did not return audio data.");
+  }
+
+  const pcmBuffer = Buffer.from(base64Audio, "base64");
+
+  // Log usage tokens from usageMetadata if available
+  const usage = data.usageMetadata;
+  await safeLogAdminAiUsage({
+    feature: featureName,
+    provider: "google",
+    model,
+    input_tokens: usage?.promptTokenCount ?? Math.ceil(promptText.length / 4),
+    output_tokens: usage?.candidatesTokenCount ?? Math.ceil(pcmBuffer.length / 320),
+    total_tokens: usage?.totalTokenCount ?? null,
+    status: "success",
+  });
+
+  // Default to compressed MP3 for fast network uploads and light CDN caching
+  if (payload.format === "wav") {
+    const header = createWavHeader(pcmBuffer.length, 24000, 1, 16);
+    return Buffer.concat([header, pcmBuffer]);
+  }
+
+  return encodePcmToMp3(pcmBuffer, 24000, 1, 128);
+}
+
 /**
  * Extracts segment timestamps using OpenAI Whisper API (v1/audio/transcriptions).
  */
 export async function extractAudioSegmentTimestamps(
   audioBuffer: Buffer,
   apiKey: string,
-  customFetch?: typeof fetch
+  customFetch?: typeof fetch,
+  mimeType: string = "audio/mpeg",
+  filename: string = "narration.mp3"
 ): Promise<number[]> {
   try {
     const fetchImpl = customFetch || fetch;
     const formData = new FormData();
-    const blob = new Blob([Uint8Array.from(audioBuffer)], { type: "audio/mpeg" });
-    formData.append("file", blob, "narration.mp3");
+    const blob = new Blob([Uint8Array.from(audioBuffer)], { type: mimeType });
+    formData.append("file", blob, filename);
     formData.append("model", "whisper-1");
     formData.append("response_format", "verbose_json");
     formData.append("timestamp_granularities[]", "segment");
@@ -196,25 +399,49 @@ export async function generateAndStoreProfileNarration(
     };
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    return {
-      success: false,
-      profile: input.profile || "gentle",
-      error: "OPENAI_API_KEY environment variable is missing on the server.",
-    };
-  }
-
+  const provider = input.provider || (input.voice && GEMINI_TTS_VOICES.some((v) => v.id === input.voice) ? "google" : "openai");
   const profileKey = input.profile || "gentle";
-  const model = input.model || process.env.OPENAI_TTS_MODEL || DEFAULT_TTS_MODEL;
-  const defaultVoice = profileKey === "solemn"
-    ? (process.env.OPENAI_TTS_VOICE_SOLEMN || "ash")
-    : (process.env.OPENAI_TTS_VOICE_GENTLE || "coral");
-  const voice = input.voice || defaultVoice;
   const instructions = input.instructions || INSTRUCTION_PROFILES[profileKey].instructions;
   const speed = input.speed ? Number(input.speed) : 1.0;
 
-  // Normalize the prayer ending for OpenAI TTS:
+  // Determine provider API keys and models
+  let apiKey = "";
+  let model = "";
+  let voice = "";
+
+  if (provider === "google") {
+    apiKey = process.env.GEMINI_API_KEY || "";
+    if (!apiKey) {
+      return {
+        success: false,
+        profile: profileKey,
+        error: "GEMINI_API_KEY environment variable is missing on the server.",
+      };
+    }
+    model = input.model || DEFAULT_GEMINI_TTS_MODEL;
+    const defaultVoice = profileKey === "solemn" ? "Charon" : "Sulafat";
+    // Ensure voice belongs to Gemini TTS voices; otherwise fallback to default Gemini voice
+    const isGeminiVoice = input.voice && GEMINI_TTS_VOICES.some((v) => v.id.toLowerCase() === input.voice?.toLowerCase());
+    voice = isGeminiVoice ? input.voice! : defaultVoice;
+  } else {
+    apiKey = process.env.OPENAI_API_KEY || "";
+    if (!apiKey) {
+      return {
+        success: false,
+        profile: profileKey,
+        error: "OPENAI_API_KEY environment variable is missing on the server.",
+      };
+    }
+    model = input.model || process.env.OPENAI_TTS_MODEL || DEFAULT_TTS_MODEL;
+    const defaultVoice = profileKey === "solemn"
+      ? (process.env.OPENAI_TTS_VOICE_SOLEMN || "ash")
+      : (process.env.OPENAI_TTS_VOICE_GENTLE || "coral");
+    // Ensure voice does not belong to Gemini when using OpenAI
+    const isGeminiVoice = input.voice && GEMINI_TTS_VOICES.some((v) => v.id.toLowerCase() === input.voice?.toLowerCase());
+    voice = isGeminiVoice || !input.voice ? defaultVoice : input.voice;
+  }
+
+  // Normalize the prayer ending for TTS:
   // Strip any trailing punctuation/newlines and connect as ", Amen." so the TTS model
   // treats "Amen" as the natural closing cadence word of the sentence.
   const cleanBody = input.body.trim();
@@ -225,25 +452,43 @@ export async function generateAndStoreProfileNarration(
   const textToNarrate = `${input.title.trim()}.\n\n${bodyText}`;
   const textHash = computeTextHash(input.title, input.body);
   const speedTag = speed !== 1.0 ? `-spd${speed.toString().replace(".", "p")}` : "";
-  const storagePath = `audio/daily-prayers/${input.contentId}/${textHash}-${profileKey}-${voice}${speedTag}-${Date.now()}.mp3`;
+  const ext = "mp3";
+  const mimeType = "audio/mpeg";
+  const storagePath = `audio/daily-prayers/${input.contentId}/${textHash}-${profileKey}-${voice}${speedTag}-${Date.now()}.${ext}`;
 
   const featureName = input.contentType === "bible_reading" ? "scripture_narration" : "daily_prayer_narration";
 
   try {
-    // 1. Call OpenAI Speech API directly with model, voice, input, instructions, speed, response_format
-    const audioBuffer = await callOpenAISpeechAPI(
-      apiKey,
-      {
-        model,
-        voice,
-        input: textToNarrate,
-        instructions,
-        speed,
-        response_format: "mp3",
-      },
-      featureName,
-      customFetch
-    );
+    let audioBuffer: Buffer;
+
+    if (provider === "google") {
+      audioBuffer = await callGeminiFlashTTS(
+        apiKey,
+        {
+          model,
+          voice,
+          input: textToNarrate,
+          instructions,
+          format: "mp3",
+        },
+        featureName,
+        customFetch
+      );
+    } else {
+      audioBuffer = await callOpenAISpeechAPI(
+        apiKey,
+        {
+          model,
+          voice,
+          input: textToNarrate,
+          instructions,
+          speed,
+          response_format: "mp3",
+        },
+        featureName,
+        customFetch
+      );
+    }
 
     // 2. Keep Supabase for metadata, but deliver shared narration from Bunny.
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -262,16 +507,15 @@ export async function generateAndStoreProfileNarration(
       };
     }
 
-    await uploadToBunny(storagePath, audioBuffer, "audio/mpeg");
+    // Fast upload of compressed MP3 (~300KB instead of 6MB uncompressed WAV)
+    await uploadToBunny(storagePath, audioBuffer, mimeType);
     const publicUrl = bunnyPublicUrl(storagePath);
 
-    // 3. Extract exact Whisper segment timestamps for frame-perfect sentence sync
-    const timestamps = await extractAudioSegmentTimestamps(audioBuffer, apiKey, customFetch);
-
-    // 4. Construct profile metadata with disclosure attribution and timestamps
+    // 3. Construct profile metadata with disclosure attribution
     const profileMeta: ProfileNarrationMetadata = {
       storage_path: storagePath,
       public_url: publicUrl,
+      provider,
       voice,
       model,
       speed,
@@ -279,7 +523,6 @@ export async function generateAndStoreProfileNarration(
       text_hash: textHash,
       generated_at: new Date().toISOString(),
       attribution: ATTRIBUTION_DISCLOSURE,
-      timestamps: timestamps.length > 0 ? timestamps : undefined,
     };
 
     // 4. Update content_items metadata without overwriting other profiles or fields

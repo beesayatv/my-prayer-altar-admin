@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Field } from "@/components/ContentEditor";
 import { requireSupabase } from "@/lib/supabase";
+import { DAILY_INSPIRATION } from "@/lib/contentConfiguration";
 
 const titleFor = () => `Daily Inspiration — ${new Date().toISOString().slice(0, 10)}`;
 
@@ -20,12 +22,18 @@ function isVideoUrl(url?: string | null): boolean {
 const MODEL_ASPECT_RATIOS: Record<string, { value: string; label: string }[]> = {
   "gpt-image-2": [
     { value: "4:5",  label: "4:5 (Standard Devotional Card)" },
+    { value: "9:16", label: "9:16 (Story / Full Portrait)" },
+    { value: "16:9", label: "16:9 (Landscape Banner)" },
   ],
   "gpt-image-1.5": [
-    { value: "4:5", label: "4:5 (Standard Devotional Card)" },
+    { value: "4:5",  label: "4:5 (Standard Devotional Card)" },
+    { value: "9:16", label: "9:16 (Story / Full Portrait)" },
+    { value: "16:9", label: "16:9 (Landscape Banner)" },
   ],
   "gpt-image-1-mini": [
-    { value: "4:5", label: "4:5 (Standard Devotional Card)" },
+    { value: "4:5",  label: "4:5 (Standard Devotional Card)" },
+    { value: "9:16", label: "9:16 (Story / Full Portrait)" },
+    { value: "16:9", label: "16:9 (Landscape Banner)" },
   ],
 };
 const DEFAULT_RATIOS = MODEL_ASPECT_RATIOS["gpt-image-2"];
@@ -72,6 +80,66 @@ export function InspirationFields({ contentId, metadata, initialBody, onRendered
     setMode(next);
     setMessage("");
   }
+
+  // Studio defaults tracking for display
+  const [studioDefaults, setStudioDefaults] = useState<{ model: string; border: string; visualDirection?: string }>({
+    model: "GPT Image 2",
+    border: "None",
+  });
+
+  // Load Image Studio defaults if editing a fresh card
+  useEffect(() => {
+    void (async () => {
+      try {
+        const client = requireSupabase();
+        const { data } = await client
+          .from("automation_configs")
+          .select("config_json")
+          .eq("content_type", DAILY_INSPIRATION)
+          .maybeSingle();
+
+        if (data?.config_json) {
+          const cfg = data.config_json as {
+            defaultModel?: string;
+            defaultAspectRatio?: string;
+            defaultBorderStyle?: string;
+            defaultFooterText?: string;
+            defaultVisualDirection?: string;
+          };
+
+          const modelLabels: Record<string, string> = {
+            "gpt-image-2": "GPT Image 2 (HD Flagship)",
+            "gpt-image-1.5": "GPT Image 1.5 (Standard)",
+            "gpt-image-1-mini": "GPT Image 1 Mini (Fast)",
+          };
+          const borderLabels: Record<string, string> = {
+            none: "None (Clean)",
+            thin: "Thin Solid Border",
+            decorative: "Decorative Gold Filigree",
+            glow: "Luminous Inner Glow",
+          };
+
+          const currentModel = metadata?.card_model || cfg.defaultModel || "gpt-image-2";
+          const currentBorder = metadata?.card_border_style || cfg.defaultBorderStyle || "none";
+
+          setStudioDefaults({
+            model: modelLabels[currentModel] || currentModel,
+            border: borderLabels[currentBorder] || currentBorder,
+            visualDirection: cfg.defaultVisualDirection,
+          });
+
+          if (!metadata?.card_model) {
+            if (cfg.defaultModel) setSelectedModel(cfg.defaultModel);
+            if (cfg.defaultAspectRatio) setSelectedAspectRatio(cfg.defaultAspectRatio);
+            if (cfg.defaultBorderStyle) setBorderStyle(cfg.defaultBorderStyle);
+            if (cfg.defaultFooterText !== undefined) setFooterText(cfg.defaultFooterText);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load Image Studio defaults:", err);
+      }
+    })();
+  }, [metadata]);
 
   // Load existing cover image when editing an existing item
   useEffect(() => {
@@ -261,18 +329,36 @@ export function InspirationFields({ contentId, metadata, initialBody, onRendered
 
     {/* ── Generate mode ── */}
     {mode === "generate" && <>
-      <div className="grid grid-cols-2 gap-4">
-        <Field label="AI Image Model" help="Select the OpenAI model to generate the card">
-          <select
-            className="select w-full"
-            value={selectedModel}
-            onChange={(e) => handleModelChange(e.target.value)}
-          >
-            <option value="gpt-image-2">GPT Image 2 (Flagship)</option>
-            <option value="gpt-image-1.5">GPT Image 1.5 (Standard)</option>
-            <option value="gpt-image-1-mini">GPT Image 1 Mini (Fast)</option>
-          </select>
-        </Field>
+      <div className="p-3.5 bg-beige/50 border border-gold/40 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+        <div className="flex flex-col gap-1 text-ink">
+          <div className="flex items-center gap-2">
+            <span className="text-gold font-bold">✦</span>
+            <span className="font-semibold text-wine">Inherited Defaults from Image Studio:</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted text-[11.5px] pl-4">
+            <span>
+              Engine: <strong className="text-ink font-medium">{studioDefaults.model}</strong>
+            </span>
+            <span>•</span>
+            <span>
+              Border Style: <strong className="text-ink font-medium">{studioDefaults.border}</strong>
+            </span>
+            {studioDefaults.visualDirection && (
+              <>
+                <span>•</span>
+                <span className="truncate max-w-xs">
+                  Palette: <span className="text-ink italic font-normal">“{studioDefaults.visualDirection}”</span>
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+        <Link href="/settings/image-studio" className="text-wine hover:text-wine-dark font-semibold underline shrink-0 self-start sm:self-auto pl-4 sm:pl-0">
+          Change Defaults in Image Studio →
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Field label="Aspect Ratio" help="Select the dimensions for the card image">
           <select
             className="select w-full"
@@ -284,26 +370,8 @@ export function InspirationFields({ contentId, metadata, initialBody, onRendered
             ))}
           </select>
         </Field>
-      </div>
 
-      <Field label="Card instruction" help="Write naturally. Put exact message text in quotation marks; include any desired visual direction here too.">
-        <textarea className="textarea min-h-36" value={instruction} maxLength={800} onChange={(event) => setInstruction(event.target.value)} placeholder={'Make me a devotional card image with the text "May the blessings of God be upon you and your family this Sunday morning!"'} />
-      </Field>
-
-      <div className="grid grid-cols-2 gap-4">
-        <Field label="Border style" help="Controls whether the card has a decorative border">
-          <select
-            className="select w-full"
-            value={borderStyle}
-            onChange={(e) => setBorderStyle(e.target.value)}
-          >
-            <option value="none">No border</option>
-            <option value="thin">Thin solid border</option>
-            <option value="decorative">Decorative (gold filigree)</option>
-            <option value="glow">Soft glow border</option>
-          </select>
-        </Field>
-        <Field label="Footer text" help="Small text at the bottom of the card. Clear to remove.">
+        <Field label="Footer branding text" help="Small text at the bottom edge. Clear to remove.">
           <input
             type="text"
             className="input"
@@ -314,6 +382,10 @@ export function InspirationFields({ contentId, metadata, initialBody, onRendered
           />
         </Field>
       </div>
+
+      <Field label="Card instruction" help="Write naturally. Put exact message text in quotation marks; include any desired visual direction here too.">
+        <textarea className="textarea min-h-36" value={instruction} maxLength={800} onChange={(event) => setInstruction(event.target.value)} placeholder={'Make me a devotional card image with the text "May the blessings of God be upon you and your family this Sunday morning!"'} />
+      </Field>
 
       <button type="button" className="button" onClick={() => void generateCard()} disabled={rendering}>
         {rendering ? `Generating ${selectedAspectRatio} card...` : cardUrl ? "Generate another version" : `Generate ${selectedAspectRatio} card`}

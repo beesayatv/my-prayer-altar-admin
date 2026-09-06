@@ -3,8 +3,11 @@ import { createClient } from "@supabase/supabase-js";
 const MODEL_PRICING: Record<string, { inputPer1M: number; outputPer1M: number }> = {
   "gpt-4o-mini": { inputPer1M: 0.15, outputPer1M: 0.60 },
   "gpt-4o": { inputPer1M: 2.50, outputPer1M: 10.00 },
+  "gemini-2.5-flash": { inputPer1M: 0.075, outputPer1M: 0.30 }, // Google Gemini 2.5 Flash
+  "gemini-2.5-pro": { inputPer1M: 1.25, outputPer1M: 5.00 }, // Google Gemini 2.5 Pro
   "tts-1": { inputPer1M: 15.00, outputPer1M: 0 }, // $15 per 1M characters
   "tts-1-hd": { inputPer1M: 30.00, outputPer1M: 0 }, // $30 per 1M characters
+  "gemini-3.1-flash-tts-preview": { inputPer1M: 1.00, outputPer1M: 20.00 }, // $1/1M text in, $20/1M audio out
 };
 
 export function calculateEstimatedCostUsd(

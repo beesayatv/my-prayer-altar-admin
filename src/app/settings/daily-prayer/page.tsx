@@ -1,5 +1,5 @@
 import { AdminGate } from "@/components/AdminGate";
-import { AutomationSettingsForm } from "@/components/AutomationSettingsForm";
+import { DailyPrayerTargetSettingsForm } from "@/components/DailyPrayerTargetSettingsForm";
 
 export default function DailyPrayerSettingsPage() {
   return (
@@ -10,12 +10,12 @@ export default function DailyPrayerSettingsPage() {
             <p className="eyebrow">Engine &amp; Automation Configuration</p>
             <h1 className="title">Daily Prayer Engine</h1>
             <p className="description">
-              Manage automatic generation schedules, weekly day intentions, custom AI system instructions, and OpenAI audio narration settings in one place.
+              Manage automatic generation schedules, weekly day intentions, custom AI system instructions, and narration settings in one place.
             </p>
           </div>
         </div>
 
-        <AutomationSettingsForm />
+        <DailyPrayerTargetSettingsForm />
       </main>
     </AdminGate>
   );

@@ -590,6 +590,7 @@ export function ContentEditor({
                 initialBody={initial?.body ?? ""}
                 heading="Faith Story"
                 bodyHelp="Tell the person’s story of faith with enough context for the full article."
+                showImportUrl={false}
               />
             ) : activeType === "bible_reading" ? (
               <BibleReadingFields

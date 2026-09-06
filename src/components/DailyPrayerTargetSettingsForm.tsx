@@ -14,35 +14,34 @@ CRITICAL EDITORIAL STYLE RULES:
 2. DOCTRINE: Doctrinally careful. Avoid claiming absolute certainty about God's secret will or promising guaranteed temporal miracles.
 3. AUTHENTICITY: Do NOT invent quotations, make up fake saint quotes, or construct false scripture references.
 4. QUALITY: The prose should be dignified, beautifully structured, and suitable for public devotional publication.
-5. NO EXTRA TEXT: Return ONLY a raw valid JSON object matching the requested schema. No markdown formatting outside the JSON, no code blocks, no conversational preamble.
+5. ENDING: End the final sentence smoothly with ", Amen." (e.g. "...through Christ our Lord, Amen.").
+6. NO EXTRA TEXT: Return ONLY a raw valid JSON object matching the requested schema. No markdown formatting outside the JSON, no code blocks, no conversational preamble.
 
 SCHEMA REQUIREMENTS:
 Return a JSON object with these exact string keys:
 - "title": A clear, inspiring prayer title (e.g. "A Prayer for Peace in Times of Anxiety").
 - "intention": A refined 3-6 word intention summary.
 - "excerpt": A concise 1-2 sentence summary for a feed preview card.
-- "body": The complete written prayer text formatted into clean paragraphs.`;
+- "body": The complete written prayer text formatted into clean paragraphs, ending with ", Amen.".`;
 
-const OPENAI_VOICES = [
-  { id: "ash", label: "Ash (Solemn, calm & reverent)" },
-  { id: "cedar", label: "Cedar (Deep & resonant)" },
-  { id: "marin", label: "Marin (Gentle & warm)" },
-  { id: "nova", label: "Nova (Bright & energetic)" },
-];
+const DEFAULT_WEEKLY_INTENTIONS: Record<string, { intention: string; theme: string }> = {
+  "1": { intention: "Gratitude and Morning Offering", theme: "Beginning the week in faith, work, and dedication" },
+  "2": { intention: "Holy Spirit and Guidance", theme: "Wisdom, clarity, and discernment in daily choices" },
+  "3": { intention: "St. Joseph and Family Protection", theme: "Family, honest labor, and quiet strength" },
+  "4": { intention: "Holy Eucharist and Praise", theme: "Thanksgiving, Eucharistic adoration, and fellowship" },
+  "5": { intention: "Sacred Heart and Divine Mercy", theme: "Forgiveness, reconciliation, and healing" },
+  "6": { intention: "Blessed Virgin Mary and Peace", theme: "Serenity, Marian intercession, and quiet reflection" },
+  "0": { intention: "Lord's Day and Resurrection Joy", theme: "Praise, parish community, and spiritual renewal" },
+};
 
-const TTS_MODELS = [
-  { id: "gpt-4o-mini-tts", label: "gpt-4o-mini-tts (Fast & Efficient - Recommended)" },
-  { id: "tts-1", label: "tts-1 (Standard OpenAI Speech)" },
-  { id: "tts-1-hd", label: "tts-1-hd (High Definition Speech)" },
-];
-
-type TodayItemStatus = {
-  id?: string;
-  title?: string;
-  status?: string;
-  hasAudio?: boolean;
-  scheduledDate?: string;
-  loading: boolean;
+const DAY_NAMES: Record<string, string> = {
+  "1": "Monday",
+  "2": "Tuesday",
+  "3": "Wednesday",
+  "4": "Thursday",
+  "5": "Friday",
+  "6": "Saturday",
+  "0": "Sunday",
 };
 
 export function DailyPrayerTargetSettingsForm() {
@@ -51,9 +50,6 @@ export function DailyPrayerTargetSettingsForm() {
   const [runningQueue, setRunningQueue] = useState(false);
   const [queueResult, setQueueResult] = useState<any | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-
-  // Active section tab
-  const [activeTab, setActiveTab] = useState<"all" | "schedule" | "ai" | "audio">("all");
 
   // Automation / Schedule state
   const [isEnabled, setIsEnabled] = useState(true);
@@ -66,66 +62,16 @@ export function DailyPrayerTargetSettingsForm() {
   // AI Prompt & Model state
   const [model, setModel] = useState("gpt-4o-mini");
   const [prompt, setPrompt] = useState(DEFAULT_EDITORIAL_PROMPT);
+  const [languageCode, setLanguageCode] = useState<AutomationConfigRecord["language_code"]>("en");
+  const [preferredLength, setPreferredLength] = useState<AutomationConfigRecord["preferred_length"]>("standard");
   const [generationQuality, setGenerationQuality] = useState<AutomationConfigRecord["generation_quality"]>("balanced");
+  const [themeStrategy, setThemeStrategy] = useState<AutomationConfigRecord["theme_strategy"]>("rotation_enabled");
 
-  // Audio / OpenAI Narration state
-  const [narrationEnabled, setNarrationEnabled] = useState(true);
-  const [defaultProfile, setDefaultProfile] = useState("gentle");
-  const [defaultVoice, setDefaultVoice] = useState("marin");
-  const [defaultSpeed, setDefaultSpeed] = useState(0.85);
-  const [ttsModel, setTtsModel] = useState("gpt-4o-mini-tts");
-
-  // Today's Daily Prayer Item Status & Actions
-  const [todayItem, setTodayItem] = useState<TodayItemStatus>({ loading: true });
-  const [generatingTodayAudio, setGeneratingTodayAudio] = useState(false);
-
-  const getTodayIso = () => {
-    return new Date().toISOString().split("T")[0];
-  };
-
-  const fetchTodayPrayer = async () => {
-    try {
-      setTodayItem((prev) => ({ ...prev, loading: true }));
-      const supabase = requireSupabase();
-      const todayStr = getTodayIso();
-      const { data, error } = await supabase
-        .from("content_items")
-        .select("id, title, content_status, metadata")
-        .eq("type", "daily_prayer")
-        .eq("metadata->>scheduled_date", todayStr)
-        .maybeSingle();
-
-      if (error) throw error;
-
-      if (data) {
-        const metadata = (data.metadata || {}) as Record<string, any>;
-        const audioMetadata = metadata?.audio || {};
-        const profiles = audioMetadata?.profiles || {};
-        const hasAudio =
-          Object.keys(profiles).length > 0 ||
-          Boolean(metadata.audio_url) ||
-          Boolean(metadata.narration_profile_gentle) ||
-          Boolean(metadata.narration_profile_solemn);
-
-        setTodayItem({
-          id: data.id,
-          title: data.title,
-          status: data.content_status,
-          hasAudio,
-          scheduledDate: todayStr,
-          loading: false,
-        });
-      } else {
-        setTodayItem({
-          scheduledDate: todayStr,
-          loading: false,
-        });
-      }
-    } catch (err) {
-      console.error("Error fetching today's prayer:", err);
-      setTodayItem({ loading: false });
-    }
-  };
+  // Weekly Intentions state
+  const [weeklyIntentions, setWeeklyIntentions] = useState<Record<string, { intention: string; theme: string }>>(
+    DEFAULT_WEEKLY_INTENTIONS
+  );
+  const [activeDayTab, setActiveDayTab] = useState<string>("1");
 
   useEffect(() => {
     async function loadConfig() {
@@ -147,23 +93,27 @@ export function DailyPrayerTargetSettingsForm() {
           setPublicationTime(data.publication_time || "00:00");
           setGenerationTime(data.generation_time || "02:00");
           setTimeZone(data.time_zone || "Asia/Manila");
-          setGenerationQuality(data.generation_quality || "balanced");
+          setLanguageCode((data.language_code as any) || "en");
+          setPreferredLength((data.preferred_length as any) || "standard");
+          setGenerationQuality((data.generation_quality as any) || "balanced");
+          setThemeStrategy((data.theme_strategy as any) || "rotation_enabled");
 
           const cJson = (data.config_json || {}) as Record<string, any>;
 
-          // AI Section
+          // AI Model & System Instruction
           if (cJson.ai) {
             if (cJson.ai.prompt) setPrompt(String(cJson.ai.prompt));
             if (cJson.ai.model) setModel(String(cJson.ai.model));
+          } else if (cJson.custom_system_instruction) {
+            setPrompt(String(cJson.custom_system_instruction));
           }
 
-          // Audio Section
-          if (cJson.audio) {
-            if (cJson.audio.narration_enabled !== undefined) setNarrationEnabled(Boolean(cJson.audio.narration_enabled));
-            if (cJson.audio.default_profile) setDefaultProfile(String(cJson.audio.default_profile));
-            if (cJson.audio.default_voice) setDefaultVoice(String(cJson.audio.default_voice));
-            if (cJson.audio.default_speed) setDefaultSpeed(Number(cJson.audio.default_speed));
-            if (cJson.audio.tts_model) setTtsModel(String(cJson.audio.tts_model));
+          // Weekly Intentions
+          if (cJson.weekly_intentions && typeof cJson.weekly_intentions === "object") {
+            setWeeklyIntentions({
+              ...DEFAULT_WEEKLY_INTENTIONS,
+              ...(cJson.weekly_intentions as Record<string, { intention: string; theme: string }>),
+            });
           }
         }
       } catch (err) {
@@ -175,7 +125,6 @@ export function DailyPrayerTargetSettingsForm() {
     }
 
     loadConfig();
-    fetchTodayPrayer();
   }, []);
 
   const handleSave = async () => {
@@ -184,7 +133,7 @@ export function DailyPrayerTargetSettingsForm() {
       setMessage(null);
       const supabase = requireSupabase();
 
-      // Load existing config_json to avoid wiping unrelated keys
+      // Load existing config_json to preserve any existing metadata
       const { data: existingData } = await supabase
         .from("automation_configs")
         .select("config_json")
@@ -195,18 +144,12 @@ export function DailyPrayerTargetSettingsForm() {
 
       const updatedConfigJson = {
         ...existingConfig,
+        custom_system_instruction: prompt,
+        weekly_intentions: weeklyIntentions,
         ai: {
           ...(existingConfig.ai || {}),
           prompt,
           model,
-        },
-        audio: {
-          ...(existingConfig.audio || {}),
-          narration_enabled: narrationEnabled,
-          default_profile: defaultProfile,
-          default_voice: defaultVoice,
-          default_speed: defaultSpeed,
-          tts_model: ttsModel,
         },
       };
 
@@ -218,7 +161,10 @@ export function DailyPrayerTargetSettingsForm() {
         publication_time: publicationTime,
         generation_time: generationTime,
         time_zone: timeZone,
+        language_code: languageCode,
+        preferred_length: preferredLength,
         generation_quality: generationQuality,
+        theme_strategy: themeStrategy,
         config_json: updatedConfigJson,
       };
 
@@ -228,7 +174,7 @@ export function DailyPrayerTargetSettingsForm() {
 
       if (error) throw error;
 
-      setMessage({ type: "success", text: "Daily Prayer target configuration saved successfully!" });
+      setMessage({ type: "success", text: "Daily Prayer engine configuration saved successfully!" });
     } catch (err) {
       console.error("Error saving daily prayer settings:", err);
       setMessage({ type: "error", text: err instanceof Error ? err.message : "Failed to save configuration." });
@@ -263,7 +209,6 @@ export function DailyPrayerTargetSettingsForm() {
 
       setQueueResult(data.result);
       setMessage({ type: "success", text: "Daily Prayer queue processor completed." });
-      await fetchTodayPrayer();
     } catch (err) {
       console.error("Queue execution error:", err);
       const text = err instanceof DOMException && err.name === "TimeoutError"
@@ -275,62 +220,15 @@ export function DailyPrayerTargetSettingsForm() {
     }
   };
 
-  const handleGenerateTodayNarration = async () => {
-    if (!todayItem.id) return;
-    try {
-      setGeneratingTodayAudio(true);
-      setMessage(null);
-
-      const { data: { session } } = await requireSupabase().auth.getSession();
-      const token = session?.access_token;
-
-      const res = await fetch("/api/admin/content/generate-narration", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          contentId: todayItem.id,
-          profile: defaultProfile,
-          voice: defaultVoice,
-          model: ttsModel,
-          speed: defaultSpeed,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Narration generation failed.");
-      }
-
-      setMessage({ type: "success", text: `OpenAI Audio Narration generated successfully for Today's Prayer!` });
-      await fetchTodayPrayer();
-    } catch (err) {
-      console.error("Error generating today's audio:", err);
-      setMessage({ type: "error", text: err instanceof Error ? err.message : "Failed to generate narration." });
-    } finally {
-      setGeneratingTodayAudio(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="card p-8 text-center text-muted">
-        Loading Daily Prayer target configuration…
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col gap-8 pb-16">
       {/* Action Header Card */}
       <section className="card bg-beige/40">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold text-wine">🎯 Target: Daily Prayer (Today)</h2>
+            <h2 className="text-lg font-semibold text-wine">🎯 Daily Prayer Engine Settings</h2>
             <p className="text-xs text-muted mt-1">
-              Configure automation schedules, AI system prompts, and OpenAI TTS narration defaults for daily prayers.
+              Govern how daily prayers are generated: drafting model, editorial prompt, weekly day intentions, and schedule horizon.
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -348,7 +246,7 @@ export function DailyPrayerTargetSettingsForm() {
               onClick={handleSave}
               disabled={saving}
             >
-              {saving ? "Saving…" : "Save Target Settings"}
+              {saving ? "Saving…" : "Save Engine Settings"}
             </button>
           </div>
         </div>
@@ -366,212 +264,259 @@ export function DailyPrayerTargetSettingsForm() {
         </div>
       )}
 
-
-
-
-
       {/* 1. Schedule & Automation Section */}
-      {(activeTab === "all" || activeTab === "schedule") && (
-        <section className="card">
-          <h2 className="card-title">⏰ Today's Schedule & Queue Automation</h2>
+      <section className="card">
+        <h2 className="card-title">⏰ Schedule &amp; Queue Automation</h2>
 
-          <div className="form-grid">
-            <label className="flex items-center justify-between rounded-xl border border-line bg-beige/40 p-4 col-span-full cursor-pointer">
-              <div>
-                <strong className="block text-base text-ink">Enable Daily Prayer Queue Automation</strong>
-                <span className="mt-0.5 block text-xs text-muted">
-                  Automatically generate, review, and schedule daily prayers into the future.
-                </span>
-              </div>
-              <input
-                type="checkbox"
-                className="h-5 w-5 cursor-pointer accent-wine"
-                checked={isEnabled}
-                onChange={(e) => setIsEnabled(e.target.checked)}
-              />
-            </label>
-
-            <div className="form-columns">
-              <Field label="Operating Mode" help="Controls whether new prayers are saved as drafts or published automatically.">
-                <select
-                  className="input cursor-pointer bg-white"
-                  value={operatingMode}
-                  onChange={(e) => setOperatingMode(e.target.value as any)}
-                >
-                  <option value="drafts_only">Drafts Only (Manual review required before live)</option>
-                  <option value="generate_and_schedule">Generate & Schedule (Save as Ready at target time)</option>
-                  <option value="fully_automatic">Fully Automatic (Instant live publishing)</option>
-                  <option value="off">Off (Disable automatic queue worker)</option>
-                </select>
-              </Field>
-
-              <Field label="Queue Horizon (Days)" help="Number of upcoming days to keep pre-populated with daily prayers.">
-                <input
-                  type="number"
-                  min={1}
-                  max={30}
-                  className="input bg-white"
-                  value={queueLength}
-                  onChange={(e) => setQueueLength(Number(e.target.value))}
-                />
-              </Field>
+        <div className="form-grid">
+          <label className="flex items-center justify-between rounded-xl border border-line bg-beige/40 p-4 col-span-full cursor-pointer">
+            <div>
+              <strong className="block text-base text-ink">Enable Daily Prayer Queue Automation</strong>
+              <span className="mt-0.5 block text-xs text-muted">
+                Automatically generate and schedule upcoming daily prayers based on the rules below.
+              </span>
             </div>
+            <input
+              type="checkbox"
+              className="h-5 w-5 cursor-pointer accent-wine"
+              checked={isEnabled}
+              onChange={(e) => setIsEnabled(e.target.checked)}
+            />
+          </label>
 
-            <div className="form-columns">
-              <Field label="Daily Publication Time (UTC)" help="Target UTC time of day when prayers become visible.">
-                <input
-                  type="time"
-                  className="input bg-white"
-                  value={publicationTime}
-                  onChange={(e) => setPublicationTime(e.target.value)}
-                />
-              </Field>
+          <div className="form-columns">
+            <Field label="Operating Mode" help="Controls whether new prayers are saved as drafts or scheduled automatically.">
+              <select
+                className="input cursor-pointer bg-white"
+                value={operatingMode}
+                onChange={(e) => setOperatingMode(e.target.value as any)}
+              >
+                <option value="drafts_only">Drafts Only (Manual review required before live)</option>
+                <option value="generate_and_schedule">Generate &amp; Schedule (Save as Ready at target time)</option>
+                <option value="fully_automatic">Fully Automatic (Instant live publishing)</option>
+                <option value="off">Off (Disable automatic queue worker)</option>
+              </select>
+            </Field>
 
-              <Field label="Generation Time (UTC)" help="Target UTC time when background generation runs.">
-                <input
-                  type="time"
-                  className="input bg-white"
-                  value={generationTime}
-                  onChange={(e) => setGenerationTime(e.target.value)}
-                />
-              </Field>
-            </div>
-
-            <Field label="Time Zone" help="Local timezone reference for date calculations.">
+            <Field label="Queue Horizon (Days)" help="Number of upcoming days to keep pre-populated with daily prayers.">
               <input
-                type="text"
+                type="number"
+                min={1}
+                max={30}
                 className="input bg-white"
-                value={timeZone}
-                onChange={(e) => setTimeZone(e.target.value)}
+                value={queueLength}
+                onChange={(e) => setQueueLength(Number(e.target.value))}
               />
             </Field>
           </div>
-        </section>
-      )}
+
+          <div className="form-columns">
+            <Field label="Daily Publication Time (UTC)" help="Target UTC time of day when prayers become visible.">
+              <input
+                type="time"
+                className="input bg-white"
+                value={publicationTime}
+                onChange={(e) => setPublicationTime(e.target.value)}
+              />
+            </Field>
+
+            <Field label="Generation Time (UTC)" help="Target UTC time when background generation runs.">
+              <input
+                type="time"
+                className="input bg-white"
+                value={generationTime}
+                onChange={(e) => setGenerationTime(e.target.value)}
+              />
+            </Field>
+          </div>
+
+          <Field label="Time Zone" help="Local timezone reference for date calculations.">
+            <input
+              type="text"
+              className="input bg-white"
+              value={timeZone}
+              onChange={(e) => setTimeZone(e.target.value)}
+            />
+          </Field>
+        </div>
+      </section>
 
       {/* 2. AI Editorial Prompt & Model Section */}
-      {(activeTab === "all" || activeTab === "ai") && (
-        <section className="card">
-          <h2 className="card-title">✍️ OpenAI System Prompt & Editorial Controls</h2>
+      <section className="card space-y-6">
+        <div className="border-b border-line pb-3">
+          <h2 className="card-title text-base font-bold text-ink m-0">✍️ AI Generation Engine &amp; Editorial Prompt</h2>
+          <p className="text-xs text-muted mt-0.5">
+            Configure the AI language model, language, length, and core theological instructions that govern prayer drafting.
+          </p>
+        </div>
 
-          <div className="form-grid">
-            <div className="form-columns">
-              <Field label="OpenAI AI Model" help="OpenAI chat model used for composing daily prayer text.">
-                <select
-                  className="input cursor-pointer bg-white"
-                  value={model}
-                  onChange={(e) => setModel(e.target.value)}
-                >
-                  <option value="gpt-4o-mini">gpt-4o-mini (Fast, cost-effective & recommended)</option>
-                  <option value="gpt-4o">gpt-4o (High-capacity reasoning)</option>
-                </select>
-              </Field>
-
-              <Field label="Generation Model" help="Preferred drafting AI model.">
-                <select
-                  className="input cursor-pointer bg-white"
-                  value={generationQuality}
-                  onChange={(e) => setGenerationQuality(e.target.value as any)}
-                >
-                  <option value="balanced">gpt-4o-mini (recommended)</option>
-                  <option value="premium">gpt-4o</option>
-                </select>
-              </Field>
+        <div className="form-grid">
+          <div className="bg-beige/30 p-3.5 rounded-xl border border-line flex flex-col sm:flex-row sm:items-center justify-between gap-3 col-span-full">
+            <div>
+              <span className="text-xs font-semibold text-ink flex items-center gap-1.5">
+                <span>🤖</span> AI Drafting Model &amp; Language defaults are managed in <strong>Text Studio</strong>
+              </span>
+              <p className="text-[11px] text-muted mt-0.5">
+                Current model: <strong className="text-wine">{model}</strong> · Language: <strong className="text-wine">{languageCode.toUpperCase()}</strong>
+              </p>
             </div>
+            <Link href="/settings/text-studio" className="button secondary text-xs whitespace-nowrap self-start sm:self-auto">
+              Open Text Studio →
+            </Link>
+          </div>
 
-            <div className="col-span-full">
-              <Field label="Daily Prayer Editorial System Prompt" help="Primary instruction system prompt provided to OpenAI when generating Daily Prayers.">
+          <div className="form-columns">
+            <Field label="Target Prayer Length" help="Controls the length and structure of generated prayers.">
+              <select
+                className="input cursor-pointer bg-white"
+                value={preferredLength}
+                onChange={(e) => setPreferredLength(e.target.value as any)}
+              >
+                <option value="short">Short (~100 words)</option>
+                <option value="standard">Standard (~200 words · Recommended)</option>
+                <option value="long">Long (~350 words)</option>
+              </select>
+            </Field>
+
+            <Field label="Theme Strategy" help="How daily prayer topics are determined across the week.">
+              <select
+                className="input cursor-pointer bg-white"
+                value={themeStrategy}
+                onChange={(e) => setThemeStrategy(e.target.value as any)}
+              >
+                <option value="rotation_enabled">📅 Weekly Day Rotation (Monday–Sunday themes below)</option>
+                <option value="ai_selected">✨ AI Dynamic Theme Selection</option>
+              </select>
+            </Field>
+          </div>
+
+          <div className="col-span-full">
+            <div className="flex items-center justify-between mb-1.5">
+              <div>
+                <label className="text-xs font-semibold text-ink">Daily Prayer Editorial System Instruction</label>
+                <p className="text-[11px] text-muted mt-0.5">
+                  The foundational prompt guiding the tone, structure, and doctrinal safeguards for every generated prayer.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPrompt(DEFAULT_EDITORIAL_PROMPT)}
+                className="text-[11px] text-wine hover:underline cursor-pointer font-medium"
+              >
+                Reset to Default Prompt
+              </button>
+            </div>
+            <textarea
+              rows={11}
+              className="input font-mono text-xs leading-relaxed bg-white w-full"
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* 3. Weekly Intention Rotation (Monday–Sunday) */}
+      <section className="card space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-line pb-3 gap-2">
+          <div>
+            <h2 className="card-title text-base font-bold text-ink m-0">📅 Weekly Intention Rotation</h2>
+            <p className="text-xs text-muted mt-0.5">
+              Set the primary intention and devotional focus for each day of the week. Used by the queue generator when Weekly Day Rotation is active.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setWeeklyIntentions(DEFAULT_WEEKLY_INTENTIONS)}
+            className="button secondary text-xs self-start sm:self-auto cursor-pointer"
+          >
+            Reset All Intentions
+          </button>
+        </div>
+
+        {/* Day Tabs */}
+        <div className="flex flex-wrap gap-1.5 border-b border-line pb-3">
+          {["1", "2", "3", "4", "5", "6", "0"].map((dayKey) => (
+            <button
+              key={dayKey}
+              type="button"
+              onClick={() => setActiveDayTab(dayKey)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                activeDayTab === dayKey
+                  ? "bg-wine text-white shadow-xs"
+                  : "bg-beige/60 text-muted hover:bg-beige hover:text-ink"
+              }`}
+            >
+              {DAY_NAMES[dayKey]}
+            </button>
+          ))}
+        </div>
+
+        {/* Active Day Editor */}
+        {(() => {
+          const currentDay = weeklyIntentions[activeDayTab] || { intention: "", theme: "" };
+          return (
+            <div className="bg-beige/30 p-4 rounded-xl border border-line space-y-3">
+              <h3 className="text-xs font-bold text-wine uppercase tracking-wider m-0">
+                {DAY_NAMES[activeDayTab]} Intention &amp; Theme
+              </h3>
+
+              <Field label="Primary Intention Title" help="Main intention topic for this day.">
+                <input
+                  type="text"
+                  className="input bg-white"
+                  value={currentDay.intention}
+                  onChange={(e) =>
+                    setWeeklyIntentions((prev) => ({
+                      ...prev,
+                      [activeDayTab]: { ...(prev[activeDayTab] || { intention: "", theme: "" }), intention: e.target.value },
+                    }))
+                  }
+                  placeholder="e.g. Holy Spirit and Guidance"
+                />
+              </Field>
+
+              <Field label="Inspiration & Theme Guidance" help="Guidance and focus areas given to the AI for this day's prayer.">
                 <textarea
-                  rows={10}
-                  className="input font-mono text-xs leading-relaxed bg-white"
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
+                  rows={2}
+                  className="input text-xs bg-white w-full"
+                  value={currentDay.theme}
+                  onChange={(e) =>
+                    setWeeklyIntentions((prev) => ({
+                      ...prev,
+                      [activeDayTab]: { ...(prev[activeDayTab] || { intention: "", theme: "" }), theme: e.target.value },
+                    }))
+                  }
+                  placeholder="e.g. Wisdom, clarity, and discernment in daily choices..."
                 />
               </Field>
             </div>
+          );
+        })()}
+      </section>
+
+      {/* Studio Cross-Links */}
+      <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="card bg-beige/20 border border-line p-4 flex items-center justify-between">
+          <div>
+            <span className="text-xs font-bold text-wine block">✍️ Text Studio</span>
+            <p className="text-[11px] text-muted mt-0.5">Centralized default AI drafting models across all features.</p>
           </div>
-        </section>
-      )}
+          <Link href="/settings/text-studio" className="button secondary text-xs whitespace-nowrap">
+            Open Text Studio →
+          </Link>
+        </div>
 
-      {/* 3. OpenAI Audio Narration Defaults Section */}
-      {(activeTab === "all" || activeTab === "audio") && (
-        <section className="card">
-          <h2 className="card-title">🎙️ OpenAI Audio Narration Defaults</h2>
-
-          <div className="form-grid">
-            <label className="flex items-center justify-between rounded-xl border border-line bg-beige/40 p-4 col-span-full cursor-pointer">
-              <div>
-                <strong className="block text-base text-ink">Enable Automated OpenAI Narration</strong>
-                <span className="mt-0.5 block text-xs text-muted">
-                  Automatically generate and attach OpenAI TTS audio when daily prayers are processed or published.
-                </span>
-              </div>
-              <input
-                type="checkbox"
-                className="h-5 w-5 cursor-pointer accent-wine"
-                checked={narrationEnabled}
-                onChange={(e) => setNarrationEnabled(e.target.checked)}
-              />
-            </label>
-
-            <div className="form-columns">
-              <Field label="Default Voice Profile" help="Default tone profile for daily prayers.">
-                <select
-                  className="input cursor-pointer bg-white"
-                  value={defaultProfile}
-                  onChange={(e) => setDefaultProfile(e.target.value)}
-                >
-                  <option value="gentle">Gentle Profile (Calm & Prayerful)</option>
-                  <option value="solemn">Solemn Profile (Reverent & Deep)</option>
-                </select>
-              </Field>
-
-              <Field label="Default OpenAI Voice" help="Default voice used when generating daily prayer audio.">
-                <select
-                  className="input cursor-pointer bg-white"
-                  value={defaultVoice}
-                  onChange={(e) => setDefaultVoice(e.target.value)}
-                >
-                  {OPENAI_VOICES.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            </div>
-
-            <div className="form-columns">
-              <Field label="OpenAI Speech Model" help="The AI voice synthesis model used to generate audio narration files.">
-                <select
-                  className="input cursor-pointer bg-white"
-                  value={ttsModel}
-                  onChange={(e) => setTtsModel(e.target.value)}
-                >
-                  {TTS_MODELS.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-
-              <Field label="Default Narration Speed" help="Speech rate multiplier used when generating daily prayer audio.">
-                <select
-                  className="input cursor-pointer bg-white"
-                  value={defaultSpeed}
-                  onChange={(e) => setDefaultSpeed(Number(e.target.value))}
-                >
-                  <option value={0.75}>0.75x (Calm & Unhurried)</option>
-                  <option value={0.85}>0.85x (Prayer Pace - Recommended)</option>
-                  <option value={1.00}>1.00x (Normal Default)</option>
-                  <option value={1.15}>1.15x (Brisk)</option>
-                </select>
-              </Field>
-            </div>
+        <div className="card bg-beige/20 border border-line p-4 flex items-center justify-between">
+          <div>
+            <span className="text-xs font-bold text-wine block">🎙️ Voice Studio</span>
+            <p className="text-[11px] text-muted mt-0.5">Configure default TTS narration voices &amp; speeds.</p>
           </div>
-        </section>
-      )}
+          <Link href="/settings/voice-studio" className="button secondary text-xs whitespace-nowrap">
+            Open Voice Studio →
+          </Link>
+        </div>
+      </section>
 
       {/* Queue Processing Execution Results */}
       {queueResult && (

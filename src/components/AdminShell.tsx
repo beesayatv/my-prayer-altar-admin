@@ -25,12 +25,14 @@ export function AdminShell({ email, onSignOut, children }: { email: string; onSi
             <Link className={`nav-link ${isActive("/bible/stories") ? "active" : ""}`} href="/bible/stories">My Bible Studio</Link>
             <Link className={`nav-link ${isActive("/bible/entities") ? "active" : ""}`} href="/bible/entities">Canonical Entities</Link>
             <Link className={`nav-link ${pathname === "/settings/daily-prayer" ? "active" : ""}`} href="/settings/daily-prayer">Prayer Studio</Link>
+            <Link className={`nav-link ${pathname === "/settings/text-studio" ? "active" : ""}`} href="/settings/text-studio">Text Studio</Link>
+            <Link className={`nav-link ${pathname === "/settings/voice-studio" ? "active" : ""}`} href="/settings/voice-studio">Voice Studio</Link>
+            <Link className={`nav-link ${pathname === "/settings/image-studio" ? "active" : ""}`} href="/settings/image-studio">Image Studio</Link>
             <Link className={`nav-link ${pathname === "/settings/today-schedule" ? "active" : ""}`} href="/settings/today-schedule">Today Schedule</Link>
             <Link className={`nav-link ${pathname === "/settings/ai-prompt" ? "active" : ""}`} href="/settings/ai-prompt">Personal Prayer AI</Link>
 
             <p className="eyebrow px-3 mt-5 mb-1 text-[10.5px]">Media</p>
             <Link className={`nav-link ${pathname === "/settings/media-library" ? "active" : ""}`} href="/settings/media-library">Media Library</Link>
-            <Link className={`nav-link ${pathname === "/settings/audio" ? "active" : ""}`} href="/settings/audio">Audio Library</Link>
 
             <p className="eyebrow px-3 mt-5 mb-1 text-[10.5px]">Operations</p>
             <Link className={`nav-link ${pathname === "/settings/emergency-controls" ? "active" : ""}`} href="/settings/emergency-controls">Emergency Controls</Link>

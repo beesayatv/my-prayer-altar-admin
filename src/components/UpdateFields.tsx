@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
 import { Field } from "@/components/ContentEditor";
 import { MediaGallery } from "@/components/MediaGallery";
 import { MarkdownFormattingGuide } from "@/components/MarkdownFormattingGuide";
@@ -12,6 +13,7 @@ export function UpdateFields({
   initialBody = "",
   heading = "Update",
   bodyHelp = "Write the announcement, event, or timely Catholic news story.",
+  showImportUrl = true,
   onApplyGenerated,
 }: {
   contentId?: string;
@@ -19,6 +21,7 @@ export function UpdateFields({
   initialBody?: string;
   heading?: string;
   bodyHelp?: string;
+  showImportUrl?: boolean;
   onApplyGenerated?: (draft: { title: string; slug: string; excerpt: string; body: string }) => void;
 }) {
   const [excerptValue, setExcerptValue] = useState(initialExcerpt);
@@ -29,6 +32,32 @@ export function UpdateFields({
   const [importLength, setImportLength] = useState<"short" | "standard" | "long">("standard");
   const [isImporting, setIsImporting] = useState(false);
   const [importMessage, setImportMessage] = useState("");
+  const [defaultModelLabel, setDefaultModelLabel] = useState("Gemini 2.5 Flash (Recommended)");
+
+  // Load configured default model from Text Studio
+  useEffect(() => {
+    void (async () => {
+      try {
+        const client = requireSupabase();
+        const { data } = await client
+          .from("automation_configs")
+          .select("config_json")
+          .eq("content_type", "catholic_news")
+          .maybeSingle();
+
+        const model = (data?.config_json as { ai?: { model?: string } })?.ai?.model || "gemini-2.5-flash";
+        const modelNames: Record<string, string> = {
+          "gemini-2.5-flash": "Google Gemini 2.5 Flash ($0.075/1M · Fast & Cost-Effective)",
+          "gemini-2.5-pro": "Google Gemini 2.5 Pro (Deep Theological Reasoning)",
+          "gpt-4o-mini": "OpenAI GPT-4o Mini (Fast Standard)",
+          "gpt-4o": "OpenAI GPT-4o (Flagship)",
+        };
+        setDefaultModelLabel(modelNames[model] || model);
+      } catch (err) {
+        console.error("Failed to load news drafting model config:", err);
+      }
+    })();
+  }, []);
 
   // Update internal state if props change (e.g. switching between items)
   useEffect(() => {
@@ -82,55 +111,76 @@ export function UpdateFields({
 
   return (
     <>
-      <div className="card mb-8">
-        <h3 className="card-title">✨ Import from URL</h3>
-        <p className="text-sm text-muted mb-4">
-          Paste a link to a Catholic news article, event, or announcement to automatically generate a draft update.
-        </p>
-        <div className="form-grid">
-          <Field label="Source URL" help="Must be a public webpage (e.g. a Vatican News article).">
-            <input
-              type="url"
-              className="input w-full"
-              placeholder="https://..."
-              value={importUrl}
-              onChange={(e) => setImportUrl(e.target.value)}
-              disabled={isImporting}
-            />
-          </Field>
-          <div className="flex gap-4 items-end">
-            <Field label="Target Length">
-              <select
-                className="select w-48"
-                value={importLength}
-                onChange={(e) => setImportLength(e.target.value as "short" | "standard" | "long")}
+      {showImportUrl && (
+        <div className="card mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+            <h3 className="card-title m-0">✨ Import from URL</h3>
+            <span className="text-[11.5px] px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-semibold self-start sm:self-auto border border-amber-200">
+              AI Assistant
+            </span>
+          </div>
+          <p className="text-sm text-muted mb-4">
+            Paste a link to a Catholic news article, event, or announcement to automatically generate a draft update.
+          </p>
+
+          {/* Inherited Engine Banner */}
+          <div className="mb-5 p-3 bg-beige/50 border border-gold/40 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2 text-ink">
+              <span className="text-gold font-bold">✦</span>
+              <span>
+                Drafting Engine: <strong className="font-semibold text-wine">{defaultModelLabel}</strong>
+              </span>
+            </div>
+            <Link href="/settings/text-studio" className="text-wine hover:text-wine-dark font-semibold underline shrink-0">
+              Change in Text Studio →
+            </Link>
+          </div>
+
+          <div className="form-grid">
+            <Field label="Source URL" help="Must be a public webpage (e.g. a Vatican News article).">
+              <input
+                type="url"
+                className="input w-full"
+                placeholder="https://..."
+                value={importUrl}
+                onChange={(e) => setImportUrl(e.target.value)}
                 disabled={isImporting}
-              >
-                <option value="short">Short (~150 words)</option>
-                <option value="standard">Standard (~300 words)</option>
-                <option value="long">Long (~500 words)</option>
-              </select>
+              />
             </Field>
-            <div className="field">
-              <div className="mt-1">
-                <button
-                  type="button"
-                  className="button secondary"
-                  onClick={handleImportUrl}
-                  disabled={isImporting || !importUrl}
+            <div className="flex gap-4 items-end">
+              <Field label="Target Length">
+                <select
+                  className="select w-48"
+                  value={importLength}
+                  onChange={(e) => setImportLength(e.target.value as "short" | "standard" | "long")}
+                  disabled={isImporting}
                 >
-                  {isImporting ? "Importing..." : "Generate Draft"}
-                </button>
+                  <option value="short">Short (~150 words)</option>
+                  <option value="standard">Standard (~300 words)</option>
+                  <option value="long">Long (~500 words)</option>
+                </select>
+              </Field>
+              <div className="field">
+                <div className="mt-1">
+                  <button
+                    type="button"
+                    className="button secondary"
+                    onClick={handleImportUrl}
+                    disabled={isImporting || !importUrl}
+                  >
+                    {isImporting ? "Importing..." : "Generate Draft"}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
+          {importMessage && (
+            <p className={`mt-4 text-sm font-medium ${importMessage.includes("success") ? "text-green-600" : "text-red-600"}`}>
+              {importMessage}
+            </p>
+          )}
         </div>
-        {importMessage && (
-          <p className={`mt-4 text-sm font-medium ${importMessage.includes("success") ? "text-green-600" : "text-red-600"}`}>
-            {importMessage}
-          </p>
-        )}
-      </div>
+      )}
 
       <div className="card">
         <h3 className="card-title">{heading}</h3>

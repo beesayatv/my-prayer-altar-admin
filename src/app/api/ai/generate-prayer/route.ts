@@ -110,6 +110,8 @@ export async function POST(request: Request) {
     }
 
     const customPrompt = (configJson.custom_system_instruction as string) || (configJson.ai?.prompt as string) || undefined;
+    const configuredModel = (configJson.ai?.model as string) || "gemini-2.5-flash";
+    const isGemini = configuredModel.toLowerCase().startsWith("gemini");
 
     // 4. Invoke AI Generation Service
     const draft = await generatePrayerDraft({
@@ -119,6 +121,7 @@ export async function POST(request: Request) {
       length: len,
       inspiration: rawInspiration || undefined,
       systemPrompt: customPrompt,
+      model: configuredModel,
     });
 
     const generatedAt = new Date().toISOString();
@@ -128,8 +131,8 @@ export async function POST(request: Request) {
       data: draft,
       metadata: {
         creation_mode: "ai_generated",
-        ai_provider: "openai",
-        ai_model: "gpt-4o-mini",
+        ai_provider: isGemini ? "google" : "openai",
+        ai_model: configuredModel,
         generated_at: generatedAt,
         prompt_version: "1.0",
       },
