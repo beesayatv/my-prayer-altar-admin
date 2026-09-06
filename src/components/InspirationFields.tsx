@@ -260,8 +260,23 @@ export function InspirationFields({ contentId, metadata, initialBody, onRendered
         headers: { Authorization: `Bearer ${await token()}` },
         body: fd,
       });
-      const json = await response.json();
-      if (!response.ok || !json.success) throw new Error(json.error || "Upload failed.");
+      // Bunny/Workers can legally return an empty body on an interrupted or
+      // proxied upload. Parse only when there is a JSON body so the UI can
+      // surface a useful HTTP error instead of masking it with a JSON parser
+      // exception.
+      const responseText = await response.text();
+      let json: { success?: boolean; error?: string; publicUrl?: string } | null = null;
+      if (responseText.trim()) {
+        try {
+          json = JSON.parse(responseText) as { success?: boolean; error?: string; publicUrl?: string };
+        } catch {
+          throw new Error(`Upload returned an invalid response (HTTP ${response.status}).`);
+        }
+      }
+      if (!response.ok || !json?.success) {
+        throw new Error(json?.error || `Upload failed (HTTP ${response.status}).`);
+      }
+      if (!json.publicUrl) throw new Error("Upload completed without a media URL. Please try again.");
       setCardUrl(json.publicUrl);
       setUploadFile(null);
       if (uploadPreview) { URL.revokeObjectURL(uploadPreview); setUploadPreview(null); }
