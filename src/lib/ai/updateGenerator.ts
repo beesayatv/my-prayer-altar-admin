@@ -36,7 +36,7 @@ Return a JSON object with these exact string keys:
 export async function generateUpdateDraft(
   input: GenerateUpdateInput
 ): Promise<GeneratedUpdateResult> {
-  const configuredModel = input.model?.trim() || "gemini-2.5-flash";
+  const configuredModel = input.model?.trim() || "gpt-4o-mini";
   const isGemini = configuredModel.toLowerCase().startsWith("gemini");
 
   const targetLength =

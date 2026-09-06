@@ -45,9 +45,9 @@ export function UpdateFields({
           .eq("content_type", "catholic_news")
           .maybeSingle();
 
-        const model = (data?.config_json as { ai?: { model?: string } })?.ai?.model || "gemini-2.5-flash";
+        const model = (data?.config_json as { ai?: { model?: string } })?.ai?.model || "gpt-4o-mini";
         const modelNames: Record<string, string> = {
-          "gemini-2.5-flash": "Google Gemini 2.5 Flash ($0.075/1M · Fast & Cost-Effective)",
+          "gemini-3.6-flash": "Google Gemini 3.6 Flash (Fast factual extraction)",
           "gemini-2.5-pro": "Google Gemini 2.5 Pro (Deep Theological Reasoning)",
           "gpt-4o-mini": "OpenAI GPT-4o Mini (Fast Standard)",
           "gpt-4o": "OpenAI GPT-4o (Flagship)",
@@ -217,4 +217,3 @@ export function UpdateFields({
     </>
   );
 }
-

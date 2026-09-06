@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/authServer";
 import { generateUpdateDraft } from "@/lib/ai/updateGenerator";
 
@@ -124,14 +125,35 @@ export async function POST(request: Request) {
     }
 
     // 5. Call AI (inheriting default model from Text Studio)
-    const supabase = (await import("@/lib/supabase")).requireSupabase();
-    const { data: configData } = await supabase
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !publishableKey) {
+      throw new Error("Supabase configuration is missing on the server.");
+    }
+
+    // This route runs on the server, where the browser Supabase client's session
+    // is unavailable. Reuse the verified admin token (or service role) so RLS
+    // permits reading the Text Studio configuration.
+    const supabase = serviceRoleKey
+      ? createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } })
+      : createClient(supabaseUrl, publishableKey, {
+          auth: { persistSession: false },
+          global: { headers: { Authorization: `Bearer ${auth.token}` } },
+        });
+
+    const { data: configData, error: configError } = await supabase
       .from("automation_configs")
       .select("config_json")
       .eq("content_type", "catholic_news")
       .maybeSingle();
 
-    const configuredModel = (configData?.config_json as { ai?: { model?: string } })?.ai?.model || "gemini-2.5-flash";
+    if (configError) {
+      throw new Error(`Could not load the Text Studio configuration: ${configError.message}`);
+    }
+
+    const configuredModel = (configData?.config_json as { ai?: { model?: string } })?.ai?.model || "gpt-4o-mini";
 
     const draft = await generateUpdateDraft({
       url,

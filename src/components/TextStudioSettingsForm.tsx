@@ -16,7 +16,7 @@ type EngineModelConfig = {
 const DEFAULT_CONFIGS: EngineModelConfig = {
   dailyPrayerModel: "gemini-2.5-flash",
   scriptureModel: "gemini-2.5-flash",
-  updatesModel: "gemini-2.5-flash",
+  updatesModel: "gpt-4o-mini",
   bibleStoriesModel: "gpt-4o",
 };
 
@@ -29,7 +29,7 @@ export function TextStudioSettingsForm() {
   const [dailyPrayerModel, setDailyPrayerModel] = useState("gemini-2.5-flash");
   const [dailyPrayerLanguage, setDailyPrayerLanguage] = useState<"en" | "ceb" | "fil">("en");
   const [scriptureModel, setScriptureModel] = useState("gemini-2.5-flash");
-  const [updatesModel, setUpdatesModel] = useState("gemini-2.5-flash");
+  const [updatesModel, setUpdatesModel] = useState("gpt-4o-mini");
   const [bibleStoriesModel, setBibleStoriesModel] = useState("gpt-4o");
 
   // Sandbox Audition / Testing state
@@ -356,7 +356,7 @@ export function TextStudioSettingsForm() {
                   onChange={(e) => setUpdatesModel(e.target.value)}
                 >
                   <optgroup label="Google Gemini (Recommended · Cost-Effective)">
-                    <option value="gemini-2.5-flash">Gemini 2.5 Flash (Fast factual extraction)</option>
+                    <option value="gemini-3.6-flash">Gemini 3.6 Flash (Fast factual extraction)</option>
                   </optgroup>
                   <optgroup label="OpenAI">
                     <option value="gpt-4o-mini">gpt-4o-mini (OpenAI standard)</option>
