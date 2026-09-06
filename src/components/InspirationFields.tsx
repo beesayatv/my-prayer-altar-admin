@@ -255,6 +255,7 @@ export function InspirationFields({ contentId, metadata, initialBody, onRendered
       fd.append("file", uploadFile);
       fd.append("contentId", id);
       fd.append("aspectRatio", uploadAspectRatio);
+      const uploadStartedAt = new Date().toISOString();
       const response = await fetch("/api/admin/daily-inspiration/upload", {
         method: "POST",
         headers: { Authorization: `Bearer ${await token()}` },
@@ -271,6 +272,23 @@ export function InspirationFields({ contentId, metadata, initialBody, onRendered
           json = JSON.parse(responseText) as { success?: boolean; error?: string; publicUrl?: string };
         } catch {
           throw new Error(`Upload returned an invalid response (HTTP ${response.status}).`);
+        }
+      }
+      // A successful upload can occasionally lose its Worker response body
+      // in transit. Confirm the just-created media record before recovering;
+      // this avoids treating an empty response as a successful upload.
+      if (response.ok && !json) {
+        const { data: recoveredMedia } = await requireSupabase()
+          .from("content_media")
+          .select("public_url, created_at")
+          .eq("content_id", id)
+          .eq("role", "thumbnail")
+          .gte("created_at", uploadStartedAt)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (recoveredMedia?.public_url) {
+          json = { success: true, publicUrl: recoveredMedia.public_url };
         }
       }
       if (!response.ok || !json?.success) {
