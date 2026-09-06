@@ -34,6 +34,33 @@ interface AiPromptConfig {
   premium_max_words_long: number;
 }
 
+const OPENAI_VOICES = [
+  { id: "marin", label: "Marin (Female · Gentle & warm)" },
+  { id: "coral", label: "Coral (Female · Soft & clear)" },
+  { id: "nova", label: "Nova (Female · Bright & energetic)" },
+  { id: "shimmer", label: "Shimmer (Female · Expressive)" },
+  { id: "ash", label: "Ash (Male · Solemn & reverent)" },
+  { id: "cedar", label: "Cedar (Male · Deep & resonant)" },
+  { id: "onyx", label: "Onyx (Male · Grounded & serious)" },
+  { id: "echo", label: "Echo (Male · Smooth & clear)" },
+];
+
+const GEMINI_VOICES = [
+  { id: "Sulafat", label: "Sulafat (Female · Warm & devotional - Recommended)" },
+  { id: "Vindemiatrix", label: "Vindemiatrix (Female · Gentle & soft)" },
+  { id: "Aoede", label: "Aoede (Female · Breezy & serene)" },
+  { id: "Kore", label: "Kore (Female · Clear & solemn)" },
+  { id: "Despina", label: "Despina (Female · Smooth & reflective)" },
+  { id: "Achernar", label: "Achernar (Female · Soft & quiet)" },
+  { id: "Zephyr", label: "Zephyr (Female · Bright & uplifting)" },
+  { id: "Schedar", label: "Schedar (Male · Even, calm & measured - Recommended)" },
+  { id: "Charon", label: "Charon (Male · Deep, solemn & contemplative)" },
+  { id: "Algieba", label: "Algieba (Male · Smooth & reverent)" },
+  { id: "Enceladus", label: "Enceladus (Male · Breathy & prayerful)" },
+  { id: "Iapetus", label: "Iapetus (Male · Clear & grounded)" },
+  { id: "Puck", label: "Puck (Male · Natural & warm)" },
+];
+
 const DEFAULT_MY_ALTAR_PROMPT = `You write personal Catholic prayers for the My Prayer Altar app. Return your response strictly as a JSON object with keys "title", "prayer", and "theme".`;
 
 export default function AiPromptSettingsPage() {
@@ -201,8 +228,14 @@ export default function AiPromptSettingsPage() {
                 <div className="form-columns">
                   <Field label="Guide model" help="Used only for brief questions and options, not the final prayer.">
                     <select className="select" value={config.guide_model_name} onChange={(e) => setConfig({ ...config, guide_model_name: e.target.value })}>
-                      <option value="gpt-4o-mini">gpt-4o-mini (recommended)</option>
-                      <option value="gpt-4o">gpt-4o</option>
+                      <optgroup label="Google Gemini (Recommended · Fast & Cost-Effective)">
+                        <option value="gemini-2.5-flash">Gemini 2.5 Flash (Ultra-fast, lowest cost · Recommended)</option>
+                        <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                      </optgroup>
+                      <optgroup label="OpenAI">
+                        <option value="gpt-4o-mini">gpt-4o-mini (Fast standard)</option>
+                        <option value="gpt-4o">gpt-4o (High capacity)</option>
+                      </optgroup>
                     </select>
                   </Field>
                   <Field label="Maximum follow-ups" help="Hard cap after the first answer.">
@@ -301,10 +334,10 @@ export default function AiPromptSettingsPage() {
               </div>
             </section>
 
-            {/* Free Tier Settings Card */}
+            {/* Free Prayer Generation Settings Card */}
             <section className="card">
-              <h2 className="card-title">Free Tier Generation Settings</h2>
-              <p className="text-xs text-muted mt-1 mb-4">Configure AI settings for free signed-in accounts.</p>
+              <h2 className="card-title">Free Prayer Generation Settings</h2>
+              <p className="text-xs text-muted mt-1 mb-4">Configure AI prayer drafting settings for guest and free signed-in accounts.</p>
               <div className="form-grid">
                 <div className="form-columns">
                   <Field label="Minimum target words" help="Lower length boundary for generated prayers.">
@@ -325,14 +358,20 @@ export default function AiPromptSettingsPage() {
                   </Field>
                 </div>
                 <div className="form-columns">
-                  <Field label="OpenAI model" help="Select the model tier for free prayer generation.">
+                  <Field label="AI Drafting Model (Free Tier)" help="Select the model tier for free prayer generation.">
                     <select
                       className="select"
                       value={config.model_name}
                       onChange={(e) => setConfig({ ...config, model_name: e.target.value })}
                     >
-                      <option value="gpt-4o-mini">gpt-4o-mini (Fast & Cost Effective)</option>
-                      <option value="gpt-4o">gpt-4o (High Quality / Premium)</option>
+                      <optgroup label="Google Gemini (Recommended · Fast & Cost-Effective)">
+                        <option value="gemini-2.5-flash">Gemini 2.5 Flash ($0.075/1M · Recommended)</option>
+                        <option value="gemini-2.5-pro">Gemini 2.5 Pro (Deep reasoning)</option>
+                      </optgroup>
+                      <optgroup label="OpenAI">
+                        <option value="gpt-4o-mini">gpt-4o-mini (Fast standard)</option>
+                        <option value="gpt-4o">gpt-4o (High capacity)</option>
+                      </optgroup>
                     </select>
                   </Field>
                   <Field label={`Creativity / Temperature (${config.temperature})`} help="Higher values increase stylistic variety.">
@@ -350,20 +389,26 @@ export default function AiPromptSettingsPage() {
               </div>
             </section>
 
-            {/* Premium Tier Settings Card */}
+            {/* Premium Prayer Generation Settings Card */}
             <section className="card">
-              <h2 className="card-title">Premium Tier Generation Settings</h2>
-              <p className="text-xs text-muted mt-1 mb-4">Configure AI settings for premium subscription accounts.</p>
+              <h2 className="card-title">Premium Prayer Generation Settings</h2>
+              <p className="text-xs text-muted mt-1 mb-4">Configure AI prayer drafting settings for premium subscription accounts.</p>
               <div className="form-grid">
                 <div className="form-columns">
-                  <Field label="OpenAI model (Premium)" help="Select the model tier for premium prayer generation.">
+                  <Field label="AI Drafting Model (Premium Tier)" help="Select the model tier for premium prayer generation.">
                     <select
                       className="select"
                       value={config.premium_model_name}
                       onChange={(e) => setConfig({ ...config, premium_model_name: e.target.value })}
                     >
-                      <option value="gpt-4o">gpt-4o (High Quality / Premium)</option>
-                      <option value="gpt-4o-mini">gpt-4o-mini (Fast & Cost Effective)</option>
+                      <optgroup label="Google Gemini (Recommended)">
+                        <option value="gemini-2.5-pro">Gemini 2.5 Pro (Deep Theological Synthesis · Recommended)</option>
+                        <option value="gemini-2.5-flash">Gemini 2.5 Flash (Ultra-Fast)</option>
+                      </optgroup>
+                      <optgroup label="OpenAI">
+                        <option value="gpt-4o">gpt-4o (OpenAI Flagship)</option>
+                        <option value="gpt-4o-mini">gpt-4o-mini (Fast standard)</option>
+                      </optgroup>
                     </select>
                   </Field>
                 </div>
@@ -416,18 +461,18 @@ export default function AiPromptSettingsPage() {
 
             <section className="card">
               <div className="flex flex-col gap-1 border-b border-line pb-3 mb-4">
-                <h2 className="card-title">Listen / Narration</h2>
+                <h2 className="card-title">Voice Generation Settings</h2>
                 <p className="text-xs text-muted">
-                  Free-tier listeners receive this single administrator-selected OpenAI voice. Audio will be created only when a user taps Listen.
+                  Configure speech synthesis for the "Listen" feature on personal prayers. Audio is generated on-demand only when a user taps "Listen".
                 </p>
               </div>
 
               <div className="form-grid">
                 <label className="flex items-center justify-between rounded-xl border border-line bg-beige/40 p-4 col-span-full cursor-pointer">
                   <span>
-                    <strong className="block text-base text-ink">Enable OpenAI narration for My Altar</strong>
+                    <strong className="block text-base text-ink">Enable AI Narration for Personal Prayers</strong>
                     <span className="mt-0.5 block text-xs text-muted">
-                      When enabled, the app may request on-demand narration for a generated personal prayer. This does not create audio until Listen is tapped.
+                      When enabled, users will see the "Listen" button on their generated personal prayer.
                     </span>
                   </span>
                   <input
@@ -439,27 +484,54 @@ export default function AiPromptSettingsPage() {
                 </label>
 
                 <div className="form-columns">
-                  <Field label="OpenAI speech model" help="Used by the server when it prepares a My Altar narration.">
+                  <Field label="TTS Speech Engine / Model" help="Engine used to narrate personal altar prayers.">
                     <select
                       className="select"
                       value={config.narration_tts_model}
-                      onChange={(e) => setConfig({ ...config, narration_tts_model: e.target.value })}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const isGem = val.toLowerCase().includes("gemini");
+                        setConfig({
+                          ...config,
+                          narration_tts_model: val,
+                          narration_voice: isGem ? "Sulafat" : "marin",
+                        });
+                      }}
                     >
-                      <option value="gpt-4o-mini-tts">gpt-4o-mini-tts (Recommended)</option>
-                      <option value="tts-1">tts-1</option>
-                      <option value="tts-1-hd">tts-1-hd</option>
+                      <optgroup label="Google Gemini TTS (Recommended · Natural & Cost-Effective)">
+                        <option value="gemini-3.1-flash-tts-preview">Gemini 3.1 Flash TTS (Ultra-Fast MP3 · Recommended)</option>
+                      </optgroup>
+                      <optgroup label="OpenAI Speech">
+                        <option value="gpt-4o-mini-tts">gpt-4o-mini-tts (OpenAI Standard)</option>
+                        <option value="tts-1">tts-1</option>
+                        <option value="tts-1-hd">tts-1-hd</option>
+                      </optgroup>
                     </select>
                   </Field>
-                  <Field label="Free-tier default voice" help="Free-tier users will hear this voice and cannot choose another one.">
+
+                  <Field label="Default Voice" help="The voice heard by users when listening to personal prayers.">
                     <select
                       className="select"
                       value={config.narration_voice}
                       onChange={(e) => setConfig({ ...config, narration_voice: e.target.value })}
                     >
-                      <option value="ash">Ash — solemn and reverent</option>
-                      <option value="cedar">Cedar — deep and resonant</option>
-                      <option value="marin">Marin — gentle and warm</option>
-                      <option value="nova">Nova — bright and clear</option>
+                      {config.narration_tts_model.toLowerCase().includes("gemini") ? (
+                        <optgroup label="Gemini Devotional Voices">
+                          {GEMINI_VOICES.map((v) => (
+                            <option key={v.id} value={v.id}>
+                              {v.label}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ) : (
+                        <optgroup label="OpenAI Voices">
+                          {OPENAI_VOICES.map((v) => (
+                            <option key={v.id} value={v.id}>
+                              {v.label}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
                     </select>
                   </Field>
                 </div>
@@ -495,7 +567,7 @@ export default function AiPromptSettingsPage() {
                 <div>
                   <h2 className="text-lg font-semibold text-ink">Advanced: Base System Instruction</h2>
                   <p className="text-xs text-muted mt-0.5">
-                    Primary system prompt instructing OpenAI on structure and core Catholic tone.
+                    Primary system prompt instructing the AI model on structure, keys, and Catholic devotional tone.
                   </p>
                 </div>
                 <button
