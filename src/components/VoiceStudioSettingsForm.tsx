@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Field } from "@/components/ContentEditor";
-import { requireSupabase } from "@/lib/supabase";
-import { adminAuthorizationHeader } from "@/lib/authServer";
+import { requireSupabase, adminAuthorizationHeader } from "@/lib/supabase";
+
 import { DAILY_PRAYER } from "@/lib/contentConfiguration";
 
 const OPENAI_VOICES = [
