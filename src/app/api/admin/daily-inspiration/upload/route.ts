@@ -1,7 +1,6 @@
 import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import sharp from "sharp";
 import { verifyAdminAuth } from "@/lib/authServer";
 import { bunnyPublicUrl, deleteFromBunny, uploadToBunny } from "@/lib/bunnyStorage";
 
@@ -54,6 +53,10 @@ export async function POST(request: NextRequest) {
       let height = 1350; // 4:5 default
       if (aspectRatio === "16:9") { width = 1920; height = 1080; }
       else if (aspectRatio === "9:16") { width = 1080; height = 1920; }
+      // sharp cannot be loaded by the Cloudflare Worker runtime. Keep this
+      // image-only dependency out of the MP4 request path so video uploads
+      // can be stored without initializing it.
+      const { default: sharp } = await import("sharp");
       uploadBuffer = await sharp(Buffer.from(await file.arrayBuffer()))
         .resize(width, height, { fit: "cover", position: "attention" })
         .webp({ quality: 92 })
