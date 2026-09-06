@@ -33,8 +33,8 @@ export async function POST(request: Request) {
     const image = await generateDailyInspirationCard({ instruction: inspirationPrompt, visualDirection, model, aspectRatio, footerText, borderStyle });
     const supabase = createClient(url, key, { auth: { persistSession: false } });
     const mediaId = crypto.randomUUID();
-    const storagePath = `content-images/${contentId}/${mediaId}.webp`;
-    await uploadToBunny(storagePath, image, "image/webp");
+    const storagePath = `content-images/${contentId}/${mediaId}.${image.fileExtension}`;
+    await uploadToBunny(storagePath, image.buffer, image.mimeType);
     const { error: mediaError } = await supabase.from("content_media").insert({ id: mediaId, content_id: contentId, storage_path: storagePath, public_url: bunnyPublicUrl(storagePath), media_type: "image", role: "thumbnail", alt_text: "OpenAI generated Daily Inspiration card", credit: "OpenAI generated devotional card", sort_order: 0 });
     if (mediaError) { await deleteFromBunny(storagePath); throw new Error("The generated image record could not be saved."); }
     const { data: current, error: loadError } = await supabase.from("content_items").select("metadata").eq("id", contentId).single();

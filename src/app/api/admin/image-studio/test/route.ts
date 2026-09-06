@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     }
 
     const startTime = Date.now();
-    const imageBuffer = await generateDailyInspirationCard({
+    const image = await generateDailyInspirationCard({
       instruction,
       visualDirection,
       model,
@@ -40,8 +40,8 @@ export async function POST(request: Request) {
     });
     const elapsedMs = Date.now() - startTime;
 
-    const base64Data = imageBuffer.toString("base64");
-    const dataUrl = `data:image/webp;base64,${base64Data}`;
+    const base64Data = image.buffer.toString("base64");
+    const dataUrl = `data:${image.mimeType};base64,${base64Data}`;
 
     return NextResponse.json({
       success: true,
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
       elapsedMs,
       model,
       aspectRatio,
-      sizeBytes: imageBuffer.length,
+      sizeBytes: image.buffer.length,
     });
   } catch (error) {
     console.error("Test card generation failed:", error);

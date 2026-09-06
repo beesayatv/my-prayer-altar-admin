@@ -1,5 +1,4 @@
 import "server-only";
-import sharp from "sharp";
 import { safeLogAdminAiUsage } from "./aiLogger";
 import { runtimeEnv } from "@/lib/runtimeEnv";
 
@@ -18,23 +17,17 @@ export async function generateDailyInspirationCard(input: {
   const aspectRatio = input.aspectRatio || "4:5";
 
   let apiSize = "1024x1536";
-  let width = 1080;
-  let height = 1350;
   let cardType = "vertical devotional social card";
-  let cropInstructions = "The final crop is 4:5. Keep every word comfortably inside the central 4:5 safe area, with generous margins.";
+  let cropInstructions = "Compose the complete image for a 4:5 canvas. Keep every word comfortably inside that canvas with generous margins.";
 
   if (aspectRatio === "16:9") {
-    apiSize = "1792x1024";
-    width = 1920;
-    height = 1080;
+    apiSize = "1536x1024";
     cardType = "horizontal landscape devotional card";
-    cropInstructions = "The final crop is 16:9. Keep every word comfortably inside the central 16:9 safe area, with generous margins.";
+    cropInstructions = "Compose the complete image for a 16:9 canvas. Keep every word comfortably inside that canvas with generous margins.";
   } else if (aspectRatio === "9:16") {
-    apiSize = "1024x1792";
-    width = 1080;
-    height = 1920;
+    apiSize = "1024x1536";
     cardType = "vertical story/portrait devotional card";
-    cropInstructions = "The final crop is 9:16. Keep every word comfortably inside the central 9:16 safe area, with generous margins.";
+    cropInstructions = "Compose the complete image for a 9:16 canvas. Keep every word comfortably inside that canvas with generous margins.";
   }
 
   const instruction = input.instruction.trim();
@@ -69,7 +62,7 @@ export async function generateDailyInspirationCard(input: {
   const response = await fetch("https://api.openai.com/v1/images/generations", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ model, prompt, size: apiSize, quality: "medium", n: 1 }),
+    body: JSON.stringify({ model, prompt, size: apiSize, quality: "medium", output_format: "webp", output_compression: 92, n: 1 }),
   });
   const requestId = response.headers.get("x-request-id") || null;
   if (!response.ok) {
@@ -81,5 +74,8 @@ export async function generateDailyInspirationCard(input: {
   const encoded = data.data?.[0]?.b64_json;
   if (!encoded) throw new Error("The image service returned no card image.");
   await safeLogAdminAiUsage({ feature: "daily_inspiration_card", model, status: "success", request_id: requestId });
-  return sharp(Buffer.from(encoded, "base64")).resize(width, height, { fit: "cover", position: "attention" }).webp({ quality: 92 }).toBuffer();
+  // Keep the WebP data returned by GPT Image unchanged: sharp is a native Node module
+  // and cannot run in the Cloudflare Worker runtime. The requested image size and
+  // prompt above preserve the selected card composition without server-side crop.
+  return { buffer: Buffer.from(encoded, "base64"), mimeType: "image/webp", fileExtension: "webp" };
 }
