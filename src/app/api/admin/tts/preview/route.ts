@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyAdminAuth } from "@/lib/authServer";
+import { runtimeEnv } from "@/lib/runtimeEnv";
 import {
   callGeminiFlashTTS,
   callOpenAISpeechAPI,
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
     let contentType = "audio/wav";
 
     if (provider === "google") {
-      const apiKey = process.env.GEMINI_API_KEY;
+      const apiKey = runtimeEnv("GEMINI_API_KEY");
       if (!apiKey) {
         return NextResponse.json(
           { success: false, error: "GEMINI_API_KEY environment variable is not configured." },
@@ -59,7 +60,7 @@ export async function POST(request: Request) {
       );
       contentType = "audio/mpeg";
     } else {
-      const apiKey = process.env.OPENAI_API_KEY;
+      const apiKey = runtimeEnv("OPENAI_API_KEY");
       if (!apiKey) {
         return NextResponse.json(
           { success: false, error: "OPENAI_API_KEY environment variable is not configured." },

@@ -1,6 +1,7 @@
 import "server-only";
 import sharp from "sharp";
 import { safeLogAdminAiUsage } from "./aiLogger";
+import { runtimeEnv } from "@/lib/runtimeEnv";
 
 export async function generateDailyInspirationCard(input: {
   instruction: string;
@@ -10,7 +11,7 @@ export async function generateDailyInspirationCard(input: {
   footerText?: string;
   borderStyle?: string;
 }) {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = runtimeEnv("OPENAI_API_KEY");
   if (!apiKey) throw new Error("Image generation is not configured.");
 
   const model = input.model || "gpt-image-2";

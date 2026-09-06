@@ -1,5 +1,6 @@
 import "server-only";
 import { safeLogAdminAiUsage } from "./aiLogger";
+import { runtimeEnv } from "@/lib/runtimeEnv";
 
 export type DailyInspirationDraft = {
   title: string;
@@ -21,7 +22,7 @@ export async function generateDailyInspirationDraft(input: {
   systemPrompt?: string;
   model?: string;
 }): Promise<DailyInspirationDraft> {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = runtimeEnv("OPENAI_API_KEY");
   if (!apiKey) throw new Error("AI generation is not configured.");
 
   const model = input.model || "gpt-4o-mini";

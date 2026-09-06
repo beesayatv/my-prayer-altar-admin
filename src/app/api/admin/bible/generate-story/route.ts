@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminServiceClient } from "@/lib/adminClient";
 import { verifyAdminAuth } from "@/lib/authServer";
 import { safeLogAdminAiUsage } from "@/lib/ai/aiLogger";
+import { runtimeEnv } from "@/lib/runtimeEnv";
 
 export async function POST(request: NextRequest) {
   const auth = await verifyAdminAuth(request);
@@ -10,7 +11,7 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = getAdminServiceClient();
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = runtimeEnv("OPENAI_API_KEY");
   if (!apiKey) {
     return NextResponse.json({ error: "OPENAI_API_KEY is not configured on the server." }, { status: 500 });
   }

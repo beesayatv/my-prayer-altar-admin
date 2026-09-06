@@ -1,4 +1,5 @@
 import { safeLogAdminAiUsage } from "./aiLogger";
+import { runtimeEnv } from "@/lib/runtimeEnv";
 
 export interface GenerateUpdateInput {
   url: string;
@@ -67,7 +68,7 @@ Ensure the response is ONLY valid JSON with keys: "title", "slug", "excerpt", "b
   const providerName = isGemini ? "google" : "openai";
 
   if (isGemini) {
-    const geminiApiKey = process.env.GEMINI_API_KEY;
+    const geminiApiKey = runtimeEnv("GEMINI_API_KEY");
     if (!geminiApiKey) {
       throw new Error(
         "GEMINI_API_KEY environment variable is missing on the server. Please set it in your server configuration."
@@ -130,7 +131,7 @@ Ensure the response is ONLY valid JSON with keys: "title", "slug", "excerpt", "b
     rawContent = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
   } else {
     // OpenAI routing
-    const openAiApiKey = process.env.OPENAI_API_KEY;
+    const openAiApiKey = runtimeEnv("OPENAI_API_KEY");
     if (!openAiApiKey) {
       throw new Error(
         "OPENAI_API_KEY environment variable is missing on the server. Please set it in your server configuration."

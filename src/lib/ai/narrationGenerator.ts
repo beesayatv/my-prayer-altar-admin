@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import lamejs from "lamejs";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { bunnyPublicUrl, deleteFromBunny, uploadToBunny } from "@/lib/bunnyStorage";
+import { runtimeEnv } from "@/lib/runtimeEnv";
 
 export interface GenerateNarrationInput {
   contentId: string;
@@ -410,7 +411,7 @@ export async function generateAndStoreProfileNarration(
   let voice = "";
 
   if (provider === "google") {
-    apiKey = process.env.GEMINI_API_KEY || "";
+    apiKey = runtimeEnv("GEMINI_API_KEY") || "";
     if (!apiKey) {
       return {
         success: false,
@@ -424,7 +425,7 @@ export async function generateAndStoreProfileNarration(
     const isGeminiVoice = input.voice && GEMINI_TTS_VOICES.some((v) => v.id.toLowerCase() === input.voice?.toLowerCase());
     voice = isGeminiVoice ? input.voice! : defaultVoice;
   } else {
-    apiKey = process.env.OPENAI_API_KEY || "";
+    apiKey = runtimeEnv("OPENAI_API_KEY") || "";
     if (!apiKey) {
       return {
         success: false,
@@ -432,10 +433,10 @@ export async function generateAndStoreProfileNarration(
         error: "OPENAI_API_KEY environment variable is missing on the server.",
       };
     }
-    model = input.model || process.env.OPENAI_TTS_MODEL || DEFAULT_TTS_MODEL;
+    model = input.model || runtimeEnv("OPENAI_TTS_MODEL") || DEFAULT_TTS_MODEL;
     const defaultVoice = profileKey === "solemn"
-      ? (process.env.OPENAI_TTS_VOICE_SOLEMN || "ash")
-      : (process.env.OPENAI_TTS_VOICE_GENTLE || "coral");
+      ? (runtimeEnv("OPENAI_TTS_VOICE_SOLEMN") || "ash")
+      : (runtimeEnv("OPENAI_TTS_VOICE_GENTLE") || "coral");
     // Ensure voice does not belong to Gemini when using OpenAI
     const isGeminiVoice = input.voice && GEMINI_TTS_VOICES.some((v) => v.id.toLowerCase() === input.voice?.toLowerCase());
     voice = isGeminiVoice || !input.voice ? defaultVoice : input.voice;
@@ -491,9 +492,9 @@ export async function generateAndStoreProfileNarration(
     }
 
     // 2. Keep Supabase for metadata, but deliver shared narration from Bunny.
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+    const url = runtimeEnv("NEXT_PUBLIC_SUPABASE_URL");
+    const serviceKey = runtimeEnv("SUPABASE_SERVICE_ROLE_KEY");
+    const anonKey = runtimeEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
 
     const supabase = customDbClient || (url && (serviceKey || anonKey)
       ? createClient(url, serviceKey || anonKey!, { auth: { persistSession: false } })
