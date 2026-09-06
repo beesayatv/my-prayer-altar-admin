@@ -21,6 +21,8 @@ interface AiPromptConfig {
   narration_enabled: boolean;
   narration_tts_model: string;
   narration_voice: string;
+  premium_narration_tts_model: string;
+  premium_narration_voice: string;
   narration_speed: number;
   narration_delivery_style: string;
   guide_enabled: boolean;
@@ -79,7 +81,9 @@ export default function AiPromptSettingsPage() {
     additional_rules: "- Address God directly with warm, reverent language.\n- Do not preach or judge.\n- End with \"Amen.\"",
     narration_enabled: true,
     narration_tts_model: "gpt-4o-mini-tts",
-    narration_voice: "marin",
+    narration_voice: "coral",
+    premium_narration_tts_model: "gemini-3.1-flash-tts-preview",
+    premium_narration_voice: "Sulafat",
     narration_speed: 0.85,
     narration_delivery_style: "Speak calmly, prayerfully, and with a warm, measured pace.",
     guide_enabled: true,
@@ -124,7 +128,9 @@ export default function AiPromptSettingsPage() {
             additional_rules: data.additional_rules || "",
             narration_enabled: data.narration_enabled ?? true,
             narration_tts_model: data.narration_tts_model || "gpt-4o-mini-tts",
-            narration_voice: data.narration_voice || "marin",
+            narration_voice: data.narration_voice || "coral",
+            premium_narration_tts_model: data.premium_narration_tts_model || "gemini-3.1-flash-tts-preview",
+            premium_narration_voice: data.premium_narration_voice || "Sulafat",
             narration_speed: Number(data.narration_speed) || 0.85,
             narration_delivery_style: data.narration_delivery_style || "Speak calmly, prayerfully, and with a warm, measured pace.",
             guide_enabled: data.guide_enabled ?? true,
@@ -172,6 +178,8 @@ export default function AiPromptSettingsPage() {
         narration_enabled: config.narration_enabled,
         narration_tts_model: config.narration_tts_model,
         narration_voice: config.narration_voice,
+        premium_narration_tts_model: config.premium_narration_tts_model,
+        premium_narration_voice: config.premium_narration_voice,
         narration_speed: Number(config.narration_speed),
         narration_delivery_style: config.narration_delivery_style,
         guide_enabled: config.guide_enabled,
@@ -483,57 +491,126 @@ export default function AiPromptSettingsPage() {
                   />
                 </label>
 
-                <div className="form-columns">
-                  <Field label="TTS Speech Engine / Model" help="Engine used to narrate personal altar prayers.">
-                    <select
-                      className="select"
-                      value={config.narration_tts_model}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        const isGem = val.toLowerCase().includes("gemini");
-                        setConfig({
-                          ...config,
-                          narration_tts_model: val,
-                          narration_voice: isGem ? "Sulafat" : "marin",
-                        });
-                      }}
-                    >
-                      <optgroup label="Google Gemini TTS (Recommended · Natural & Cost-Effective)">
-                        <option value="gemini-3.1-flash-tts-preview">Gemini 3.1 Flash TTS (Ultra-Fast MP3 · Recommended)</option>
-                      </optgroup>
-                      <optgroup label="OpenAI Speech">
-                        <option value="gpt-4o-mini-tts">gpt-4o-mini-tts (OpenAI Standard)</option>
-                        <option value="tts-1">tts-1</option>
-                        <option value="tts-1-hd">tts-1-hd</option>
-                      </optgroup>
-                    </select>
-                  </Field>
+                {/* Free Tier Voice Settings */}
+                <div className="col-span-full rounded-xl border border-line bg-beige/20 p-4">
+                  <div className="mb-3">
+                    <h3 className="text-sm font-semibold text-ink">Free Tier Voice Settings</h3>
+                    <p className="text-xs text-muted">Speech engine and default voice for guest and free accounts (cost-optimized).</p>
+                  </div>
+                  <div className="form-columns">
+                    <Field label="Free TTS Speech Engine" help="Engine used for free users (e.g. gpt-4o-mini-tts is highly cost-effective).">
+                      <select
+                        className="select"
+                        value={config.narration_tts_model}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const isGem = val.toLowerCase().includes("gemini");
+                          setConfig({
+                            ...config,
+                            narration_tts_model: val,
+                            narration_voice: isGem ? "Sulafat" : "coral",
+                          });
+                        }}
+                      >
+                        <optgroup label="OpenAI Speech (Lowest Cost · Recommended for Free)">
+                          <option value="gpt-4o-mini-tts">gpt-4o-mini-tts (OpenAI Standard · $0.015/1k chars)</option>
+                          <option value="tts-1">tts-1</option>
+                          <option value="tts-1-hd">tts-1-hd</option>
+                        </optgroup>
+                        <optgroup label="Google Gemini TTS">
+                          <option value="gemini-3.1-flash-tts-preview">Gemini 3.1 Flash TTS (Devotional)</option>
+                        </optgroup>
+                      </select>
+                    </Field>
 
-                  <Field label="Default Voice" help="The voice heard by users when listening to personal prayers.">
-                    <select
-                      className="select"
-                      value={config.narration_voice}
-                      onChange={(e) => setConfig({ ...config, narration_voice: e.target.value })}
-                    >
-                      {config.narration_tts_model.toLowerCase().includes("gemini") ? (
-                        <optgroup label="Gemini Devotional Voices">
-                          {GEMINI_VOICES.map((v) => (
-                            <option key={v.id} value={v.id}>
-                              {v.label}
-                            </option>
-                          ))}
+                    <Field label="Free Default Voice" help="The voice heard by free users when listening to personal prayers.">
+                      <select
+                        className="select"
+                        value={config.narration_voice}
+                        onChange={(e) => setConfig({ ...config, narration_voice: e.target.value })}
+                      >
+                        {config.narration_tts_model.toLowerCase().includes("gemini") ? (
+                          <optgroup label="Gemini Devotional Voices">
+                            {GEMINI_VOICES.map((v) => (
+                              <option key={v.id} value={v.id}>
+                                {v.label}
+                              </option>
+                            ))}
+                          </optgroup>
+                        ) : (
+                          <optgroup label="OpenAI Voices">
+                            {OPENAI_VOICES.map((v) => (
+                              <option key={v.id} value={v.id}>
+                                {v.label}
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                      </select>
+                    </Field>
+                  </div>
+                </div>
+
+                {/* Premium Tier Voice Settings */}
+                <div className="col-span-full rounded-xl border border-wine/30 bg-wine/[0.02] p-4">
+                  <div className="mb-3">
+                    <h3 className="text-sm font-semibold text-wine flex items-center gap-1.5">
+                      <span>✦</span> Premium Tier Voice Settings
+                    </h3>
+                    <p className="text-xs text-muted">Speech engine and default voice for premium subscribers (high-fidelity devotional voices).</p>
+                  </div>
+                  <div className="form-columns">
+                    <Field label="Premium TTS Speech Engine" help="Engine used for premium subscribers.">
+                      <select
+                        className="select"
+                        value={config.premium_narration_tts_model}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const isGem = val.toLowerCase().includes("gemini");
+                          setConfig({
+                            ...config,
+                            premium_narration_tts_model: val,
+                            premium_narration_voice: isGem ? "Sulafat" : "marin",
+                          });
+                        }}
+                      >
+                        <optgroup label="Google Gemini TTS (Recommended for Premium · Deep Devotional Quality)">
+                          <option value="gemini-3.1-flash-tts-preview">Gemini 3.1 Flash TTS (Ultra-Fast MP3 · Recommended)</option>
                         </optgroup>
-                      ) : (
-                        <optgroup label="OpenAI Voices">
-                          {OPENAI_VOICES.map((v) => (
-                            <option key={v.id} value={v.id}>
-                              {v.label}
-                            </option>
-                          ))}
+                        <optgroup label="OpenAI Speech">
+                          <option value="gpt-4o-mini-tts">gpt-4o-mini-tts</option>
+                          <option value="tts-1-hd">tts-1-hd</option>
+                          <option value="tts-1">tts-1</option>
                         </optgroup>
-                      )}
-                    </select>
-                  </Field>
+                      </select>
+                    </Field>
+
+                    <Field label="Premium Default Voice" help="Default voice for premium subscribers (users can also customize in-app).">
+                      <select
+                        className="select"
+                        value={config.premium_narration_voice}
+                        onChange={(e) => setConfig({ ...config, premium_narration_voice: e.target.value })}
+                      >
+                        {config.premium_narration_tts_model.toLowerCase().includes("gemini") ? (
+                          <optgroup label="Gemini Devotional Voices">
+                            {GEMINI_VOICES.map((v) => (
+                              <option key={v.id} value={v.id}>
+                                {v.label}
+                              </option>
+                            ))}
+                          </optgroup>
+                        ) : (
+                          <optgroup label="OpenAI Voices">
+                            {OPENAI_VOICES.map((v) => (
+                              <option key={v.id} value={v.id}>
+                                {v.label}
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                      </select>
+                    </Field>
+                  </div>
                 </div>
 
                 <div className="form-columns">
