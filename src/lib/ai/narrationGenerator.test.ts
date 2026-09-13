@@ -7,6 +7,7 @@ import {
   INSTRUCTION_PROFILES,
   DEFAULT_TTS_MODEL,
   ATTRIBUTION_DISCLOSURE,
+  transcriptEndsWithAmen,
 } from "./narrationGenerator";
 
 describe("OpenAI Speech API (gpt-4o-mini-tts) Payload & Metadata Tests", () => {
@@ -76,7 +77,7 @@ describe("OpenAI Speech API (gpt-4o-mini-tts) Payload & Metadata Tests", () => {
 
   test("4. Includes required disclosure attribution in metadata", () => {
     assert.equal(ATTRIBUTION_DISCLOSURE, "AI-generated narration");
-    assert.equal(DEFAULT_TTS_MODEL, "gpt-4o-mini-tts");
+    assert.equal(DEFAULT_TTS_MODEL, "gpt-4o-mini-tts-2025-12-15");
   });
 
   test("5. Verifies Gentle profile resolves to 'coral' and Solemn profile resolves to 'ash'", () => {
@@ -85,5 +86,13 @@ describe("OpenAI Speech API (gpt-4o-mini-tts) Payload & Metadata Tests", () => {
 
     assert.equal(gentleVoice, "coral");
     assert.equal(solemnVoice, "ash");
+  });
+
+  test("6. Accepts only transcripts whose final spoken word is Amen", () => {
+    assert.equal(transcriptEndsWithAmen("Through Christ our Lord, Amen."), true);
+    assert.equal(transcriptEndsWithAmen("AMEN!  \n"), true);
+    assert.equal(transcriptEndsWithAmen("Amen. Music follows."), false);
+    assert.equal(transcriptEndsWithAmen("Through Christ our Lord."), false);
+    assert.equal(transcriptEndsWithAmen("amend"), false);
   });
 });

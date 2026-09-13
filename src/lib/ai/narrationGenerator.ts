@@ -1,11 +1,13 @@
 import crypto from "node:crypto";
-// @ts-ignore - lamejs lacks bundled type definitions
+// @ts-expect-error - lamejs lacks bundled type definitions
 import lamejs from "lamejs";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { bunnyPublicUrl, deleteFromBunny, uploadToBunny } from "@/lib/bunnyStorage";
 import { runtimeEnv } from "@/lib/runtimeEnv";
 
 const NARRATION_PROVIDER_TIMEOUT_MS = 110_000;
+const NARRATION_VALIDATION_TIMEOUT_MS = 60_000;
+const MAX_NARRATION_ATTEMPTS = 3;
 
 export interface GenerateNarrationInput {
   contentId: string;
@@ -51,17 +53,17 @@ export interface GenerateNarrationResult {
 }
 
 const STORAGE_BUCKET = "today-media";
-export const DEFAULT_TTS_MODEL = "gpt-4o-mini-tts";
+export const DEFAULT_TTS_MODEL = "gpt-4o-mini-tts-2025-12-15";
 export const ATTRIBUTION_DISCLOSURE = "AI-generated narration";
 
 export const INSTRUCTION_PROFILES = {
   gentle: {
     name: "gentle",
-    instructions: "Read slowly, warmly, and prayerfully. Use a calm devotional tone, natural pauses between sentences, restrained emotion, and clear pronunciation. Ensure the closing word Amen is spoken clearly and reverently.",
+    instructions: "Read the supplied text exactly as written, without omitting or adding words. Read slowly, warmly, and prayerfully. Use a calm devotional tone, natural pauses between sentences, restrained emotion, and clear pronunciation. Speak the final word Amen fully, clearly, and reverently; do not whisper it or fade out before it.",
   },
   solemn: {
     name: "solemn",
-    instructions: "Read in a reverent, measured, solemn tone. Use natural pauses and quiet conviction. Keep the delivery peaceful and restrained rather than dramatic. Ensure the closing word Amen is spoken clearly and reverently.",
+    instructions: "Read the supplied text exactly as written, without omitting or adding words. Read in a reverent, measured, solemn tone. Use natural pauses and quiet conviction. Keep the delivery peaceful and restrained rather than dramatic. Speak the final word Amen fully, clearly, and reverently; do not whisper it or fade out before it.",
   },
 };
 
@@ -384,6 +386,43 @@ export async function extractAudioSegmentTimestamps(
   return [];
 }
 
+export function transcriptEndsWithAmen(transcript: string): boolean {
+  const normalized = transcript
+    .normalize("NFKC")
+    .trim()
+    .replace(/[\s\p{P}\p{S}]+$/gu, "")
+    .toLocaleLowerCase("en-US");
+  return /(?:^|\s)amen$/.test(normalized);
+}
+
+/** Transcribes generated narration so incomplete audio is never published. */
+export async function transcribeNarration(
+  audioBuffer: Buffer,
+  apiKey: string,
+  customFetch?: typeof fetch
+): Promise<string> {
+  const fetchImpl = customFetch || fetch;
+  const formData = new FormData();
+  const blob = new Blob([Uint8Array.from(audioBuffer)], { type: "audio/mpeg" });
+  formData.append("file", blob, "narration.mp3");
+  formData.append("model", "whisper-1");
+  formData.append("response_format", "json");
+
+  const response = await fetchImpl("https://api.openai.com/v1/audio/transcriptions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}` },
+    body: formData,
+    signal: AbortSignal.timeout(NARRATION_VALIDATION_TIMEOUT_MS),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Narration validation failed (${response.status}): ${await response.text()}`);
+  }
+
+  const result = await response.json() as { text?: unknown };
+  return typeof result.text === "string" ? result.text : "";
+}
+
 /**
  * Generates audio narration using direct OpenAI Speech API (v1/audio/speech),
  * uploads MP3 to Bunny, records it for lifecycle cleanup, and updates
@@ -435,7 +474,10 @@ export async function generateAndStoreProfileNarration(
         error: "OPENAI_API_KEY environment variable is missing on the server.",
       };
     }
-    model = input.model || runtimeEnv("OPENAI_TTS_MODEL") || DEFAULT_TTS_MODEL;
+    const configuredModel = input.model || runtimeEnv("OPENAI_TTS_MODEL") || DEFAULT_TTS_MODEL;
+    // Resolve the floating alias to a snapshot so production behavior cannot
+    // change underneath already-tested admin workflows.
+    model = configuredModel === "gpt-4o-mini-tts" ? DEFAULT_TTS_MODEL : configuredModel;
     const defaultVoice = profileKey === "solemn"
       ? (runtimeEnv("OPENAI_TTS_VOICE_SOLEMN") || "ash")
       : (runtimeEnv("OPENAI_TTS_VOICE_GENTLE") || "coral");
@@ -478,19 +520,36 @@ export async function generateAndStoreProfileNarration(
         customFetch
       );
     } else {
-      audioBuffer = await callOpenAISpeechAPI(
-        apiKey,
-        {
-          model,
-          voice,
-          input: textToNarrate,
-          instructions,
-          speed,
-          response_format: "mp3",
-        },
-        featureName,
-        customFetch
-      );
+      let lastTranscript = "";
+      let validatedAudio: Buffer | null = null;
+
+      for (let attempt = 1; attempt <= MAX_NARRATION_ATTEMPTS; attempt += 1) {
+        const candidate = await callOpenAISpeechAPI(
+          apiKey,
+          {
+            model,
+            voice,
+            input: textToNarrate,
+            instructions,
+            speed,
+            response_format: "mp3",
+          },
+          featureName,
+          customFetch
+        );
+        lastTranscript = await transcribeNarration(candidate, apiKey, customFetch);
+        if (transcriptEndsWithAmen(lastTranscript)) {
+          validatedAudio = candidate;
+          break;
+        }
+        console.warn(`Narration attempt ${attempt}/${MAX_NARRATION_ATTEMPTS} omitted the closing Amen; retrying.`);
+      }
+
+      if (!validatedAudio) {
+        const ending = lastTranscript.trim().slice(-120) || "no transcript returned";
+        throw new Error(`OpenAI narration was not saved because the generated audio did not end with Amen after ${MAX_NARRATION_ATTEMPTS} attempts. Last transcript ending: ${ending}`);
+      }
+      audioBuffer = validatedAudio;
     }
 
     // 2. Keep Supabase for metadata, but deliver shared narration from Bunny.
