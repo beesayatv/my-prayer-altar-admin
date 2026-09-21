@@ -102,7 +102,7 @@ export function YouTubeVideoInbox() {
           <div>
             <p className="eyebrow">Review-only automation</p>
             <h2 className="text-lg font-semibold text-ink">Video inbox</h2>
-            <p className="mt-1 text-sm text-muted">New uploads become Video Feature drafts. Nothing is published until you review and publish it from Today Feed.</p>
+            <p className="mt-1 text-sm text-muted">Only recent uploads (within 36 hours) become Video Feature drafts. Nothing is published until you review and publish it from Today Feed.</p>
           </div>
           <button className="button whitespace-nowrap" type="button" onClick={() => void checkNow()} disabled={checking || !sources.some((source) => source.is_enabled)}>
             {checking ? "Checking YouTube…" : "Check now"}
