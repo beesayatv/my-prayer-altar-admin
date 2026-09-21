@@ -7,6 +7,7 @@ const areas = [
   { title: "Voice Studio", description: "Audition and configure text-to-speech engines, voices, and narration speeds.", href: "/settings/voice-studio", action: "Open Voice Studio" },
   { title: "Image Studio", description: "Configure default AI image generation engines, devotional card framing, and preview tests.", href: "/settings/image-studio", action: "Open Image Studio" },
   { title: "Today Feed Schedule", description: "Set the publish time and expiry rhythm used when Studio suggests the next content slot.", href: "/settings/today-schedule", action: "Manage Schedule Rules" },
+  { title: "Video Inbox", description: "Watch trusted YouTube channels and collect their new uploads as unpublished Video Feature drafts.", href: "/settings/video-inbox", action: "Manage Video Sources" },
   { title: "Emergency Controls", description: "Temporarily pause the Today Feed while you diagnose unusual traffic or perform maintenance.", href: "/settings/emergency-controls", action: "Open Emergency Controls" },
   { title: "Personal Prayer AI", description: "Personal prayer prompt, word length, and Catholic doctrinal guardrails.", href: "/settings/ai-prompt", action: "Open Personal Prayer AI" },
   { title: "Media Library", description: "Daily Prayer image pool, altar video loops, and ambient instrumental music tracks.", href: "/settings/media-library", action: "Open Media Library" },

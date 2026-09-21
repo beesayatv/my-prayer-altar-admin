@@ -29,6 +29,7 @@ export function AdminShell({ email, onSignOut, children }: { email: string; onSi
             <Link className={`nav-link ${pathname === "/settings/voice-studio" ? "active" : ""}`} href="/settings/voice-studio">Voice Studio</Link>
             <Link className={`nav-link ${pathname === "/settings/image-studio" ? "active" : ""}`} href="/settings/image-studio">Image Studio</Link>
             <Link className={`nav-link ${pathname === "/settings/today-schedule" ? "active" : ""}`} href="/settings/today-schedule">Today Schedule</Link>
+            <Link className={`nav-link ${pathname === "/settings/video-inbox" ? "active" : ""}`} href="/settings/video-inbox">Video Inbox</Link>
             <Link className={`nav-link ${pathname === "/settings/ai-prompt" ? "active" : ""}`} href="/settings/ai-prompt">Personal Prayer AI</Link>
 
             <p className="eyebrow px-3 mt-5 mb-1 text-[10.5px]">Media</p>
@@ -65,4 +66,3 @@ export function AdminShell({ email, onSignOut, children }: { email: string; onSi
     </div>
   );
 }
-
