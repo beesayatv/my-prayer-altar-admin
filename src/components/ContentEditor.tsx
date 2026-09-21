@@ -230,6 +230,10 @@ export function ContentEditor({
       payloadMetadata.theme = String(f.get("theme") || "").trim();
       delete payloadMetadata.tags_csv;
       payloadMetadata.creation_mode = "ai_assisted";
+    } else if (activeType === "video_feature") {
+      const videoLabel = String(f.get("video_label") || "").trim();
+      if (videoLabel) payloadMetadata.video_label = videoLabel;
+      else delete payloadMetadata.video_label;
     } else if (activeType === "church_highlight") {
       // Church Highlight
       payloadMetadata.church_classification = String(f.get("classification") || "").trim();
@@ -615,7 +619,7 @@ export function ContentEditor({
                 }}
               />
             ) : activeType === "video_feature" ? (
-              <VideoFeatureFields initialVideoUrl={initial?.video_url ?? ""} initialExcerpt={initial?.excerpt ?? ""} initialBody={initial?.body ?? ""} />
+              <VideoFeatureFields initialVideoUrl={initial?.video_url ?? ""} initialVideoLabel={initial?.metadata?.video_label ?? ""} initialExcerpt={initial?.excerpt ?? ""} initialBody={initial?.body ?? ""} />
             ) : (
               <ChurchFields
                 metadata={metadata}
