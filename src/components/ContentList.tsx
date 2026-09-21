@@ -32,7 +32,7 @@ export function ContentList() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const activeTab = (searchParams.get("type") ?? "all") as "all" | "church_highlight" | "daily_prayer" | "daily_inspiration" | "bible_reading" | "update" | "faith_story";
+  const activeTab = (searchParams.get("type") ?? "all") as "all" | "church_highlight" | "daily_prayer" | "daily_inspiration" | "bible_reading" | "update" | "faith_story" | "video_feature";
   const statusFilter = (searchParams.get("status") ?? "all") as "all" | "live" | "scheduled" | "draft" | "archived";
 
   function setFilter(type: string, status: string) {
@@ -259,6 +259,7 @@ export function ContentList() {
             <option value="bible_reading">Scripture &amp; Reflection</option>
             <option value="update">Updates</option>
             <option value="faith_story">Faith Stories</option>
+            <option value="video_feature">Video Features</option>
           </select>
         </div>
         <div className="hidden">

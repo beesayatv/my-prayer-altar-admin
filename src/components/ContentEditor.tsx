@@ -10,6 +10,8 @@ import { InspirationFields } from "@/components/InspirationFields";
 import { NarrationManagerCard } from "@/components/NarrationManagerCard";
 import { UpdateFields } from "@/components/UpdateFields";
 import { BibleReadingFields } from "@/components/BibleReadingFields";
+import { VideoFeatureFields } from "@/components/VideoFeatureFields";
+import { youtubeVideoId } from "@/lib/youtube";
 
 
 export type EditorContentItem = {
@@ -27,6 +29,7 @@ export type EditorContentItem = {
   metadata: Record<string, string>;
   content_status: "draft" | "ready" | "archived";
   cover_media_id: string | null;
+  video_url: string | null;
 };
 
 function toLocalDatetime(iso?: string) {
@@ -59,6 +62,8 @@ export function ContentEditor({
           ? "Faith Story"
         : activeType === "bible_reading"
           ? "Scripture & Reflection"
+          : activeType === "video_feature"
+            ? "Video Feature"
           : "Church Highlight";
 
   const [message, setMessage] = useState("");
@@ -158,6 +163,11 @@ export function ContentEditor({
         setIsSaving(false);
         return;
       }
+      if (activeType === "video_feature" && !youtubeVideoId(String(f.get("video_url") || ""))) {
+        setMessage("Enter a valid YouTube video URL before publishing.");
+        setIsSaving(false);
+        return;
+      }
     }
 
     // Build payload based on active content type (Merge existing metadata)
@@ -250,6 +260,7 @@ export function ContentEditor({
       source_url: activeType === "church_highlight" || activeType === "update"
         ? initial?.source_url ?? null
         : String(f.get("sourceUrl") || "").trim() || null,
+      video_url: activeType === "video_feature" ? String(f.get("video_url") || "").trim() || null : initial?.video_url ?? null,
     };
 
     const c = requireSupabase();
@@ -506,7 +517,7 @@ export function ContentEditor({
             {/* Daily Inspiration creates its internal title, slug, and language automatically. */}
             {activeType !== "daily_inspiration" && <div className="card">
               <h3 className="card-title">
-                {activeType === "daily_prayer" ? "Prayer Information" : activeType === "update" ? "Update Information" : activeType === "faith_story" ? "Faith Story Information" : activeType === "bible_reading" ? "Reading Information" : "Church Information"}
+                {activeType === "daily_prayer" ? "Prayer Information" : activeType === "update" ? "Update Information" : activeType === "faith_story" ? "Faith Story Information" : activeType === "bible_reading" ? "Reading Information" : activeType === "video_feature" ? "Video Information" : "Church Information"}
               </h3>
               <div className="form-grid">
                 <div className="form-columns">
@@ -603,6 +614,8 @@ export function ContentEditor({
                   setHasBibleDraft(true);
                 }}
               />
+            ) : activeType === "video_feature" ? (
+              <VideoFeatureFields initialVideoUrl={initial?.video_url ?? ""} initialExcerpt={initial?.excerpt ?? ""} initialBody={initial?.body ?? ""} />
             ) : (
               <ChurchFields
                 metadata={metadata}
@@ -629,7 +642,7 @@ export function ContentEditor({
               </div>
             )}
 
-            {(activeType === "daily_prayer" || activeType === "daily_inspiration" || activeType === "church_highlight" || activeType === "update" || activeType === "faith_story" || activeType === "bible_reading") && <div className="card">
+            {(activeType === "daily_prayer" || activeType === "daily_inspiration" || activeType === "church_highlight" || activeType === "update" || activeType === "faith_story" || activeType === "bible_reading" || activeType === "video_feature") && <div className="card">
               <h3 className="card-title">Visibility & Scheduling</h3>
               <div className="form-grid">
                 {activeType !== "update" && (
@@ -672,7 +685,7 @@ export function ContentEditor({
 
 
             {/* Daily Prayer and Scripture & Reflection visuals always come from the shared pool. */}
-            {activeType !== "daily_inspiration" && activeType !== "daily_prayer" && activeType !== "bible_reading" && <CoverUpload contentId={initial?.id} onCoverChange={onCoverChange}/>}
+            {activeType !== "daily_inspiration" && activeType !== "daily_prayer" && activeType !== "bible_reading" && activeType !== "video_feature" && <CoverUpload contentId={initial?.id} onCoverChange={onCoverChange}/>}
 
             {/* OpenAI Audio Narration Management */}
             {(activeType === "daily_prayer" || activeType === "bible_reading") && (
