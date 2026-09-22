@@ -259,7 +259,7 @@ export function ContentList() {
             <option value="bible_reading">Scripture &amp; Reflection</option>
             <option value="update">Updates</option>
             <option value="faith_story">Faith Stories</option>
-            <option value="video_feature">Video Features</option>
+            <option value="video_feature">Videos</option>
           </select>
         </div>
         <div className="hidden">
@@ -394,6 +394,8 @@ export function ContentList() {
                   ? "No Updates yet"
                   : activeTab === "faith_story"
                   ? "No Faith Stories yet"
+                  : activeTab === "video_feature"
+                    ? "No Videos yet"
                 : "No editorial content yet"}
           </h2>
           <p className="description">
@@ -432,11 +434,13 @@ export function ContentList() {
             const isBibleReading = row.type === "bible_reading";
             const isUpdate = row.type === "update";
             const isFaithStory = row.type === "faith_story";
+            const isVideo = row.type === "video_feature";
             const contentTypeLabel = isPrayer ? "Daily Prayer"
               : isInspiration ? "Daily Inspiration"
               : isBibleReading ? "Scripture & Reflection"
               : isUpdate ? "Update"
               : isFaithStory ? "Faith Story"
+              : isVideo ? "Video"
               : "Church Highlight";
 
             return (
