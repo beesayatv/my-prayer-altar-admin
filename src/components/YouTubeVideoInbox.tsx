@@ -50,7 +50,7 @@ export function YouTubeVideoInbox() {
     const channelName = String(form.get("channel_name") || "").trim();
     const channelUrl = String(form.get("channel_url") || "").trim();
     const label = String(form.get("default_video_label") || "").trim();
-    const sourceLocation = String(form.get("default_video_source_location") || "").trim();
+    const sourceLocation = String(form.get("default_video_source_location") || "").trim().toLowerCase();
     const autoPublish = form.get("auto_publish") === "on";
     const prefix = String(form.get("title_prefix") || "").trim();
     const keywords = String(form.get("title_keywords") || "").split(",").map((word) => word.trim()).filter(Boolean);
@@ -58,8 +58,8 @@ export function YouTubeVideoInbox() {
       setMessage({ type: "error", text: "Enter the channel ID beginning with UC (not the @handle)." });
       return;
     }
-    if (autoPublish && !["cebu", "quiapo"].includes(sourceLocation)) {
-      setMessage({ type: "error", text: "Choose Cebu or Quiapo before enabling auto-publish." });
+    if (autoPublish && !sourceLocation) {
+      setMessage({ type: "error", text: "Enter a source location before enabling auto-publish." });
       return;
     }
     setSaving(true);
@@ -109,12 +109,12 @@ export function YouTubeVideoInbox() {
     const channelName = String(form.get("channel_name") || "").trim();
     const channelUrl = String(form.get("channel_url") || "").trim();
     const label = String(form.get("default_video_label") || "").trim();
-    const sourceLocation = String(form.get("default_video_source_location") || "").trim();
+    const sourceLocation = String(form.get("default_video_source_location") || "").trim().toLowerCase();
     const autoPublish = form.get("auto_publish") === "on";
     const prefix = String(form.get("title_prefix") || "").trim();
     const keywords = String(form.get("title_keywords") || "").split(",").map((word) => word.trim()).filter(Boolean);
-    if (autoPublish && !["cebu", "quiapo"].includes(sourceLocation)) {
-      setMessage({ type: "error", text: "Choose Cebu or Quiapo before enabling auto-publish." });
+    if (autoPublish && !sourceLocation) {
+      setMessage({ type: "error", text: "Enter a source location before enabling auto-publish." });
       return;
     }
     setSaving(true);
@@ -178,7 +178,7 @@ export function YouTubeVideoInbox() {
             <label className="field"><span>YouTube channel ID</span><input required name="channel_id" className="input" placeholder="UC…" /></label>
             <label className="field"><span>Channel URL</span><input required name="channel_url" type="url" className="input" placeholder="https://www.youtube.com/@…" /></label>
             <label className="field"><span>Video label</span><input name="default_video_label" maxLength={48} className="input" placeholder="Mass Video" /></label>
-            <label className="field"><span>Default source location <small className="text-muted">optional</small></span><select name="default_video_source_location" className="select" defaultValue=""><option value="">Choose during review</option><option value="cebu">Cebu</option><option value="quiapo">Quiapo</option></select></label>
+            <label className="field"><span>Default source location <small className="text-muted">optional</small></span><input name="default_video_source_location" className="input" placeholder="Cebu" maxLength={48} /></label>
             <label className="field col-span-full flex cursor-pointer items-center justify-between rounded-xl border border-line bg-beige/40 p-4"><span><strong className="block text-sm text-ink">Auto-publish new videos</strong><small className="text-muted">For trusted sources only. New eligible uploads publish directly to Videos instead of becoming drafts.</small></span><input name="auto_publish" type="checkbox" className="h-5 w-5 accent-wine" /></label>
             <label className="field"><span>Title prefix <small className="text-muted">optional</small></span><input name="title_prefix" maxLength={80} className="input" placeholder="Sto. Niño Cebu" /></label>
             <label className="field"><span>Only titles containing <small className="text-muted">comma-separated, optional</small></span><input name="title_keywords" className="input" placeholder="Mass, Eucharist" /></label>
@@ -210,7 +210,7 @@ export function YouTubeVideoInbox() {
                 <label className="field"><span>YouTube channel ID <small className="text-muted">kept fixed to preserve import history</small></span><input className="input" value={source.channel_id} disabled /></label>
                 <label className="field"><span>Channel URL</span><input required name="channel_url" type="url" className="input" defaultValue={source.channel_url} /></label>
                 <label className="field"><span>Video label</span><input name="default_video_label" maxLength={48} className="input" defaultValue={source.default_video_label ?? ""} /></label>
-                <label className="field"><span>Default source location</span><select name="default_video_source_location" className="select" defaultValue={source.default_video_source_location ?? ""}><option value="">Choose during review</option><option value="cebu">Cebu</option><option value="quiapo">Quiapo</option></select></label>
+                <label className="field"><span>Default source location</span><input name="default_video_source_location" className="input" defaultValue={source.default_video_source_location ?? ""} placeholder="Cebu" maxLength={48} /></label>
                 <label className="field col-span-full flex cursor-pointer items-center justify-between rounded-xl border border-line bg-beige/40 p-4"><span><strong className="block text-sm text-ink">Auto-publish new videos</strong><small className="text-muted">For trusted sources only. New eligible uploads publish directly to Videos instead of becoming drafts.</small></span><input name="auto_publish" type="checkbox" className="h-5 w-5 accent-wine" defaultChecked={source.auto_publish} /></label>
                 <label className="field"><span>Title prefix <small className="text-muted">optional</small></span><input name="title_prefix" maxLength={80} className="input" defaultValue={source.title_prefix ?? ""} /></label>
                 <label className="field col-span-full"><span>Only titles containing <small className="text-muted">comma-separated, optional</small></span><input name="title_keywords" className="input" defaultValue={(source.title_keywords ?? []).join(", ")} /></label>

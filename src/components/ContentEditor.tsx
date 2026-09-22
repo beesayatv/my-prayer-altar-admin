@@ -169,8 +169,8 @@ export function ContentEditor({
         setIsSaving(false);
         return;
       }
-      if (activeType === "video_feature" && !["cebu", "quiapo"].includes(String(f.get("video_source_location") || ""))) {
-        setMessage("Choose Cebu or Quiapo before publishing this video.");
+      if (activeType === "video_feature" && !String(f.get("video_source_location") || "").trim()) {
+        setMessage("Enter a source location before publishing this video.");
         setIsSaving(false);
         return;
       }
@@ -273,7 +273,7 @@ export function ContentEditor({
         ? initial?.source_url ?? null
         : String(f.get("sourceUrl") || "").trim() || null,
       video_url: activeType === "video_feature" ? String(f.get("video_url") || "").trim() || null : initial?.video_url ?? null,
-      video_source_location: activeType === "video_feature" ? String(f.get("video_source_location") || "").trim() || null : initial?.video_source_location ?? null,
+      video_source_location: activeType === "video_feature" ? String(f.get("video_source_location") || "").trim().toLowerCase() || null : initial?.video_source_location ?? null,
     };
 
     const c = requireSupabase();
