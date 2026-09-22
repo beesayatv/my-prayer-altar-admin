@@ -26,6 +26,7 @@ function formatDate(value: string | null) {
 
 export function YouTubeVideoInbox() {
   const [sources, setSources] = useState<Source[]>([]);
+  const [editingSource, setEditingSource] = useState<Source | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -95,6 +96,35 @@ export function YouTubeVideoInbox() {
     await load();
   }
 
+  async function updateSource(event: React.FormEvent<HTMLFormElement>, source: Source) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const channelName = String(form.get("channel_name") || "").trim();
+    const channelUrl = String(form.get("channel_url") || "").trim();
+    const label = String(form.get("default_video_label") || "").trim();
+    const sourceLocation = String(form.get("default_video_source_location") || "").trim();
+    const prefix = String(form.get("title_prefix") || "").trim();
+    const keywords = String(form.get("title_keywords") || "").split(",").map((word) => word.trim()).filter(Boolean);
+    setSaving(true);
+    setMessage(null);
+    const { error } = await requireSupabase().from("youtube_video_sources").update({
+      channel_name: channelName,
+      channel_url: channelUrl,
+      default_video_label: label || null,
+      default_video_source_location: sourceLocation || null,
+      title_prefix: prefix || null,
+      title_keywords: keywords,
+    }).eq("id", source.id);
+    setSaving(false);
+    if (error) {
+      setMessage({ type: "error", text: "Could not update this source." });
+      return;
+    }
+    setEditingSource(null);
+    setMessage({ type: "success", text: "Video source updated." });
+    await load();
+  }
+
   async function checkNow() {
     setChecking(true);
     setMessage(null);
@@ -155,10 +185,23 @@ export function YouTubeVideoInbox() {
                 {source.last_error && <p className="mt-2 text-xs text-rose-700">Last error: {source.last_error}</p>}
               </div>
               <div className="flex gap-2">
+                <button type="button" className="button secondary compact" onClick={() => setEditingSource(source)}>Edit</button>
                 <button type="button" className="button secondary compact" onClick={() => void toggleSource(source)}>{source.is_enabled ? "Pause" : "Resume"}</button>
                 <button type="button" className="button secondary compact text-rose-700" onClick={() => void deleteSource(source)}>Delete</button>
               </div>
             </div>
+            {editingSource?.id === source.id && <form className="mt-4 border-t border-line pt-4" onSubmit={(event) => void updateSource(event, source)}>
+              <div className="form-grid">
+                <label className="field"><span>Channel name</span><input required name="channel_name" className="input" defaultValue={source.channel_name} /></label>
+                <label className="field"><span>YouTube channel ID <small className="text-muted">kept fixed to preserve import history</small></span><input className="input" value={source.channel_id} disabled /></label>
+                <label className="field"><span>Channel URL</span><input required name="channel_url" type="url" className="input" defaultValue={source.channel_url} /></label>
+                <label className="field"><span>Video label</span><input name="default_video_label" maxLength={48} className="input" defaultValue={source.default_video_label ?? ""} /></label>
+                <label className="field"><span>Default source location</span><select name="default_video_source_location" className="select" defaultValue={source.default_video_source_location ?? ""}><option value="">Choose during review</option><option value="cebu">Cebu</option><option value="quiapo">Quiapo</option></select></label>
+                <label className="field"><span>Title prefix <small className="text-muted">optional</small></span><input name="title_prefix" maxLength={80} className="input" defaultValue={source.title_prefix ?? ""} /></label>
+                <label className="field col-span-full"><span>Only titles containing <small className="text-muted">comma-separated, optional</small></span><input name="title_keywords" className="input" defaultValue={(source.title_keywords ?? []).join(", ")} /></label>
+              </div>
+              <div className="mt-4 flex gap-2"><button className="button" type="submit" disabled={saving}>{saving ? "Saving…" : "Save changes"}</button><button className="button secondary" type="button" onClick={() => setEditingSource(null)}>Cancel</button></div>
+            </form>}
           </article>)}
         </div>}
       </section>
