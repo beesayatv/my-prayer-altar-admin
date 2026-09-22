@@ -174,6 +174,11 @@ export function ContentEditor({
         setIsSaving(false);
         return;
       }
+      if (activeType === "video_feature" && String(f.get("video_source_location") || "").trim().toLowerCase() === "all") {
+        setMessage("Use a specific place for the video source location. ‘All’ is reserved for the app filter.");
+        setIsSaving(false);
+        return;
+      }
     }
 
     // Build payload based on active content type (Merge existing metadata)

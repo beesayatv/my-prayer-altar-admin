@@ -16,7 +16,7 @@ export function VideoFeatureFields({ initialVideoUrl = "", initialVideoLabel = "
       <Field label="Video label" help="Optional. Shown with the video, for example “Mass Video”.">
         <input className="input" name="video_label" type="text" defaultValue={initialVideoLabel} maxLength={48} placeholder="Video" />
       </Field>
-      <Field label="Source location" help="Required for a published video to appear in the Videos tab. Use a simple place name, for example Cebu, Quiapo, or Davao.">
+      <Field label="Source location" help="Required for a published video to appear in the Videos tab. Use a simple place name, for example Cebu, Quiapo, or Davao. ‘All’ is reserved for the app filter.">
         <input className="input" name="video_source_location" type="text" defaultValue={initialSourceLocation || ""} placeholder="Cebu" maxLength={48} required />
       </Field>
       {url && !videoId && <p className="text-sm text-red-700">Enter a valid YouTube video URL.</p>}
