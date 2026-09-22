@@ -10,6 +10,7 @@ type Source = {
   channel_url: string;
   default_video_label: string | null;
   default_video_source_location: string | null;
+  auto_publish: boolean;
   title_prefix: string | null;
   title_keywords: string[];
   is_enabled: boolean;
@@ -50,10 +51,15 @@ export function YouTubeVideoInbox() {
     const channelUrl = String(form.get("channel_url") || "").trim();
     const label = String(form.get("default_video_label") || "").trim();
     const sourceLocation = String(form.get("default_video_source_location") || "").trim();
+    const autoPublish = form.get("auto_publish") === "on";
     const prefix = String(form.get("title_prefix") || "").trim();
     const keywords = String(form.get("title_keywords") || "").split(",").map((word) => word.trim()).filter(Boolean);
     if (!CHANNEL_ID.test(channelId)) {
       setMessage({ type: "error", text: "Enter the channel ID beginning with UC (not the @handle)." });
+      return;
+    }
+    if (autoPublish && !["cebu", "quiapo"].includes(sourceLocation)) {
+      setMessage({ type: "error", text: "Choose Cebu or Quiapo before enabling auto-publish." });
       return;
     }
     setSaving(true);
@@ -64,6 +70,7 @@ export function YouTubeVideoInbox() {
       channel_url: channelUrl,
       default_video_label: label || null,
       default_video_source_location: sourceLocation || null,
+      auto_publish: autoPublish,
       title_prefix: prefix || null,
       title_keywords: keywords,
     });
@@ -103,8 +110,13 @@ export function YouTubeVideoInbox() {
     const channelUrl = String(form.get("channel_url") || "").trim();
     const label = String(form.get("default_video_label") || "").trim();
     const sourceLocation = String(form.get("default_video_source_location") || "").trim();
+    const autoPublish = form.get("auto_publish") === "on";
     const prefix = String(form.get("title_prefix") || "").trim();
     const keywords = String(form.get("title_keywords") || "").split(",").map((word) => word.trim()).filter(Boolean);
+    if (autoPublish && !["cebu", "quiapo"].includes(sourceLocation)) {
+      setMessage({ type: "error", text: "Choose Cebu or Quiapo before enabling auto-publish." });
+      return;
+    }
     setSaving(true);
     setMessage(null);
     const { error } = await requireSupabase().from("youtube_video_sources").update({
@@ -112,6 +124,7 @@ export function YouTubeVideoInbox() {
       channel_url: channelUrl,
       default_video_label: label || null,
       default_video_source_location: sourceLocation || null,
+      auto_publish: autoPublish,
       title_prefix: prefix || null,
       title_keywords: keywords,
     }).eq("id", source.id);
@@ -166,6 +179,7 @@ export function YouTubeVideoInbox() {
             <label className="field"><span>Channel URL</span><input required name="channel_url" type="url" className="input" placeholder="https://www.youtube.com/@…" /></label>
             <label className="field"><span>Video label</span><input name="default_video_label" maxLength={48} className="input" placeholder="Mass Video" /></label>
             <label className="field"><span>Default source location <small className="text-muted">optional</small></span><select name="default_video_source_location" className="select" defaultValue=""><option value="">Choose during review</option><option value="cebu">Cebu</option><option value="quiapo">Quiapo</option></select></label>
+            <label className="field col-span-full flex cursor-pointer items-center justify-between rounded-xl border border-line bg-beige/40 p-4"><span><strong className="block text-sm text-ink">Auto-publish new videos</strong><small className="text-muted">For trusted sources only. New eligible uploads publish directly to Videos instead of becoming drafts.</small></span><input name="auto_publish" type="checkbox" className="h-5 w-5 accent-wine" /></label>
             <label className="field"><span>Title prefix <small className="text-muted">optional</small></span><input name="title_prefix" maxLength={80} className="input" placeholder="Sto. Niño Cebu" /></label>
             <label className="field"><span>Only titles containing <small className="text-muted">comma-separated, optional</small></span><input name="title_keywords" className="input" placeholder="Mass, Eucharist" /></label>
           </div>
@@ -180,7 +194,7 @@ export function YouTubeVideoInbox() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <div className="flex items-center gap-2"><h3 className="font-semibold text-ink">{source.channel_name}</h3><span className={`badge ${source.is_enabled ? "ready" : "archived"}`}>{source.is_enabled ? "Watching" : "Paused"}</span></div>
-                <p className="mt-1 text-xs text-muted">{source.default_video_label || "Video"} · {source.default_video_source_location || "location chosen during review"}{source.title_keywords?.length ? ` · titles: ${source.title_keywords.join(", ")}` : " · all uploads"}</p>
+                <p className="mt-1 text-xs text-muted">{source.default_video_label || "Video"} · {source.default_video_source_location || "location chosen during review"} · {source.auto_publish ? "auto-publish on" : "draft review"}{source.title_keywords?.length ? ` · titles: ${source.title_keywords.join(", ")}` : " · all uploads"}</p>
                 <p className="mt-1 text-xs text-muted">Last successful check: {formatDate(source.last_success_at)}</p>
                 {source.last_error && <p className="mt-2 text-xs text-rose-700">Last error: {source.last_error}</p>}
               </div>
@@ -197,6 +211,7 @@ export function YouTubeVideoInbox() {
                 <label className="field"><span>Channel URL</span><input required name="channel_url" type="url" className="input" defaultValue={source.channel_url} /></label>
                 <label className="field"><span>Video label</span><input name="default_video_label" maxLength={48} className="input" defaultValue={source.default_video_label ?? ""} /></label>
                 <label className="field"><span>Default source location</span><select name="default_video_source_location" className="select" defaultValue={source.default_video_source_location ?? ""}><option value="">Choose during review</option><option value="cebu">Cebu</option><option value="quiapo">Quiapo</option></select></label>
+                <label className="field col-span-full flex cursor-pointer items-center justify-between rounded-xl border border-line bg-beige/40 p-4"><span><strong className="block text-sm text-ink">Auto-publish new videos</strong><small className="text-muted">For trusted sources only. New eligible uploads publish directly to Videos instead of becoming drafts.</small></span><input name="auto_publish" type="checkbox" className="h-5 w-5 accent-wine" defaultChecked={source.auto_publish} /></label>
                 <label className="field"><span>Title prefix <small className="text-muted">optional</small></span><input name="title_prefix" maxLength={80} className="input" defaultValue={source.title_prefix ?? ""} /></label>
                 <label className="field col-span-full"><span>Only titles containing <small className="text-muted">comma-separated, optional</small></span><input name="title_keywords" className="input" defaultValue={(source.title_keywords ?? []).join(", ")} /></label>
               </div>
