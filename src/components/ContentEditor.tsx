@@ -240,6 +240,8 @@ export function ContentEditor({
       const videoLabel = String(f.get("video_label") || "").trim();
       if (videoLabel) payloadMetadata.video_label = videoLabel;
       else delete payloadMetadata.video_label;
+      // Videos use the fixed five-Manila-calendar-day query window, not Today expiry.
+      delete payloadMetadata.expire_at;
     } else if (activeType === "church_highlight") {
       // Church Highlight
       payloadMetadata.church_classification = String(f.get("classification") || "").trim();

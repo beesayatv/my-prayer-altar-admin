@@ -128,7 +128,8 @@ export default function EditorialCalendarPage() {
       const { data, error: loadError } = await client
         .from("content_items")
         .select("id, title, type, content_status, metadata")
-        .eq("content_status", "ready");
+        .eq("content_status", "ready")
+        .neq("type", "video_feature");
 
       if (loadError) throw loadError;
 
