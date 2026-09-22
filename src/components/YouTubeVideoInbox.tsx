@@ -9,6 +9,7 @@ type Source = {
   channel_name: string;
   channel_url: string;
   default_video_label: string | null;
+  default_video_source_location: string | null;
   title_prefix: string | null;
   title_keywords: string[];
   is_enabled: boolean;
@@ -47,6 +48,7 @@ export function YouTubeVideoInbox() {
     const channelName = String(form.get("channel_name") || "").trim();
     const channelUrl = String(form.get("channel_url") || "").trim();
     const label = String(form.get("default_video_label") || "").trim();
+    const sourceLocation = String(form.get("default_video_source_location") || "").trim();
     const prefix = String(form.get("title_prefix") || "").trim();
     const keywords = String(form.get("title_keywords") || "").split(",").map((word) => word.trim()).filter(Boolean);
     if (!CHANNEL_ID.test(channelId)) {
@@ -60,6 +62,7 @@ export function YouTubeVideoInbox() {
       channel_name: channelName,
       channel_url: channelUrl,
       default_video_label: label || null,
+      default_video_source_location: sourceLocation || null,
       title_prefix: prefix || null,
       title_keywords: keywords,
     });
@@ -102,7 +105,7 @@ export function YouTubeVideoInbox() {
           <div>
             <p className="eyebrow">Review-only automation</p>
             <h2 className="text-lg font-semibold text-ink">Video inbox</h2>
-            <p className="mt-1 text-sm text-muted">Only recent uploads (within 36 hours) become Video Feature drafts. Nothing is published until you review and publish it from Today Feed.</p>
+            <p className="mt-1 text-sm text-muted">Only recent uploads (within 36 hours) become video drafts. Nothing is published until you review it for the Videos tab.</p>
           </div>
           <button className="button whitespace-nowrap" type="button" onClick={() => void checkNow()} disabled={checking || !sources.some((source) => source.is_enabled)}>
             {checking ? "Checking YouTube…" : "Check now"}
@@ -119,6 +122,7 @@ export function YouTubeVideoInbox() {
             <label className="field"><span>YouTube channel ID</span><input required name="channel_id" className="input" placeholder="UC…" /></label>
             <label className="field"><span>Channel URL</span><input required name="channel_url" type="url" className="input" placeholder="https://www.youtube.com/@…" /></label>
             <label className="field"><span>Video label</span><input name="default_video_label" maxLength={48} className="input" placeholder="Mass Video" /></label>
+            <label className="field"><span>Default source location <small className="text-muted">optional</small></span><select name="default_video_source_location" className="select" defaultValue=""><option value="">Choose during review</option><option value="cebu">Cebu</option><option value="quiapo">Quiapo</option></select></label>
             <label className="field"><span>Title prefix <small className="text-muted">optional</small></span><input name="title_prefix" maxLength={80} className="input" placeholder="Sto. Niño Cebu" /></label>
             <label className="field"><span>Only titles containing <small className="text-muted">comma-separated, optional</small></span><input name="title_keywords" className="input" placeholder="Mass, Eucharist" /></label>
           </div>
@@ -133,7 +137,7 @@ export function YouTubeVideoInbox() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <div className="flex items-center gap-2"><h3 className="font-semibold text-ink">{source.channel_name}</h3><span className={`badge ${source.is_enabled ? "ready" : "archived"}`}>{source.is_enabled ? "Watching" : "Paused"}</span></div>
-                <p className="mt-1 text-xs text-muted">{source.default_video_label || "Video Feature"}{source.title_keywords?.length ? ` · titles: ${source.title_keywords.join(", ")}` : " · all uploads"}</p>
+                <p className="mt-1 text-xs text-muted">{source.default_video_label || "Video"} · {source.default_video_source_location || "location chosen during review"}{source.title_keywords?.length ? ` · titles: ${source.title_keywords.join(", ")}` : " · all uploads"}</p>
                 <p className="mt-1 text-xs text-muted">Last successful check: {formatDate(source.last_success_at)}</p>
                 {source.last_error && <p className="mt-2 text-xs text-rose-700">Last error: {source.last_error}</p>}
               </div>

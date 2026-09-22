@@ -30,6 +30,7 @@ export type EditorContentItem = {
   content_status: "draft" | "ready" | "archived";
   cover_media_id: string | null;
   video_url: string | null;
+  video_source_location?: string | null;
 };
 
 function toLocalDatetime(iso?: string) {
@@ -168,6 +169,11 @@ export function ContentEditor({
         setIsSaving(false);
         return;
       }
+      if (activeType === "video_feature" && !["cebu", "quiapo"].includes(String(f.get("video_source_location") || ""))) {
+        setMessage("Choose Cebu or Quiapo before publishing this video.");
+        setIsSaving(false);
+        return;
+      }
     }
 
     // Build payload based on active content type (Merge existing metadata)
@@ -265,6 +271,7 @@ export function ContentEditor({
         ? initial?.source_url ?? null
         : String(f.get("sourceUrl") || "").trim() || null,
       video_url: activeType === "video_feature" ? String(f.get("video_url") || "").trim() || null : initial?.video_url ?? null,
+      video_source_location: activeType === "video_feature" ? String(f.get("video_source_location") || "").trim() || null : initial?.video_source_location ?? null,
     };
 
     const c = requireSupabase();
@@ -619,7 +626,7 @@ export function ContentEditor({
                 }}
               />
             ) : activeType === "video_feature" ? (
-              <VideoFeatureFields initialVideoUrl={initial?.video_url ?? ""} initialVideoLabel={initial?.metadata?.video_label ?? ""} initialExcerpt={initial?.excerpt ?? ""} initialBody={initial?.body ?? ""} />
+              <VideoFeatureFields initialVideoUrl={initial?.video_url ?? ""} initialVideoLabel={initial?.metadata?.video_label ?? ""} initialExcerpt={initial?.excerpt ?? ""} initialBody={initial?.body ?? ""} initialSourceLocation={initial?.video_source_location} />
             ) : (
               <ChurchFields
                 metadata={metadata}
@@ -647,9 +654,9 @@ export function ContentEditor({
             )}
 
             {(activeType === "daily_prayer" || activeType === "daily_inspiration" || activeType === "church_highlight" || activeType === "update" || activeType === "faith_story" || activeType === "bible_reading" || activeType === "video_feature") && <div className="card">
-              <h3 className="card-title">Visibility & Scheduling</h3>
+              <h3 className="card-title">{activeType === "video_feature" ? "Videos publishing" : "Visibility & Scheduling"}</h3>
               <div className="form-grid">
-                {activeType !== "update" && (
+                {activeType !== "update" && activeType !== "video_feature" && (
                   <div className="col-span-full">
                     <button
                       type="button"
@@ -662,7 +669,7 @@ export function ContentEditor({
                     <p className="text-xs text-muted mt-2">Uses this content type’s scheduling rule and the latest existing expiry. You can still edit the dates before saving.</p>
                   </div>
                 )}
-                <Field label="🚀 Publish Date" help="When it appears in Today (defaults to Now)">
+                <Field label="🚀 Publish Date" help={activeType === "video_feature" ? "When it appears in Videos (defaults to now)" : "When it appears in Today (defaults to Now)"}>
                   <input
                     type="datetime-local"
                     className="input"
@@ -670,18 +677,18 @@ export function ContentEditor({
                     onChange={(e) => setPublishAt(e.target.value ? new Date(e.target.value).toISOString() : "")}
                   />
                 </Field>
-                <Field label="⌛ Expiry Date" help="When it automatically leaves Today (optional)">
+                {activeType !== "video_feature" && <Field label="⌛ Expiry Date" help="When it automatically leaves Today (optional)">
                   <input
                     type="datetime-local"
                     className="input"
                     value={toLocalDatetime(expireAt)}
                     onChange={(e) => setExpireAt(e.target.value ? new Date(e.target.value).toISOString() : "")}
                   />
-                </Field>
+                </Field>}
 
                 {initial?.content_status === "ready" && (
                    <p className="text-xs text-muted italic text-center border-t border-line pt-4">
-                    Content is currently managed by the automated placement trigger.
+                    {activeType === "video_feature" ? "Published videos appear in the Videos tab and do not enter Today." : "Content is currently managed by the automated placement trigger."}
                    </p>
                 )}
               </div>

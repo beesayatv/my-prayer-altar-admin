@@ -93,7 +93,7 @@ export default function Page() {
                   </div>
                 </Link>
                 <Link href="/content/new?type=video_feature" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-ink hover:bg-beige/60 transition-colors">
-                  <span className="text-base">▶</span><div><div>Video Feature</div><div className="text-xs font-normal text-muted">Curate a YouTube video for Today</div></div>
+                  <span className="text-base">▶</span><div><div>Video</div><div className="text-xs font-normal text-muted">Curate a YouTube video for the Videos tab</div></div>
                 </Link>
               </div>
             )}
