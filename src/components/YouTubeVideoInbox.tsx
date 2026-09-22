@@ -82,6 +82,19 @@ export function YouTubeVideoInbox() {
     else await load();
   }
 
+  async function deleteSource(source: Source) {
+    const confirmed = window.confirm(`Delete ${source.channel_name}? This removes the source and its import history. Existing video drafts or published videos will remain.`);
+    if (!confirmed) return;
+    setMessage(null);
+    const { error } = await requireSupabase().from("youtube_video_sources").delete().eq("id", source.id);
+    if (error) {
+      setMessage({ type: "error", text: "Could not delete this source." });
+      return;
+    }
+    setMessage({ type: "success", text: "Video source deleted. Existing video content was preserved." });
+    await load();
+  }
+
   async function checkNow() {
     setChecking(true);
     setMessage(null);
@@ -141,7 +154,10 @@ export function YouTubeVideoInbox() {
                 <p className="mt-1 text-xs text-muted">Last successful check: {formatDate(source.last_success_at)}</p>
                 {source.last_error && <p className="mt-2 text-xs text-rose-700">Last error: {source.last_error}</p>}
               </div>
-              <button type="button" className="button secondary compact" onClick={() => void toggleSource(source)}>{source.is_enabled ? "Pause" : "Resume"}</button>
+              <div className="flex gap-2">
+                <button type="button" className="button secondary compact" onClick={() => void toggleSource(source)}>{source.is_enabled ? "Pause" : "Resume"}</button>
+                <button type="button" className="button secondary compact text-rose-700" onClick={() => void deleteSource(source)}>Delete</button>
+              </div>
             </div>
           </article>)}
         </div>}
