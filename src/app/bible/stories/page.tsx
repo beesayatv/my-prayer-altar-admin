@@ -232,6 +232,9 @@ export default function BibleStoriesPage() {
             <Link href="/bible/entities" className="button secondary">
               Manage Entities
             </Link>
+            <Link href="/bible/tags" className="button secondary">
+              Manage Filters
+            </Link>
             <Link href="/bible/stories/new" className="button secondary">
               + New Manual Story
             </Link>

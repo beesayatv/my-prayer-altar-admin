@@ -31,11 +31,19 @@ interface Chapter {
   content_blocks: BibleBlockInput[];
 }
 
+interface BibleTag {
+  id: string;
+  slug: string;
+  display_name: string;
+  is_active: boolean;
+}
+
 export default function EditStoryPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
 
   const [story, setStory] = useState<Story | null>(null);
   const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [availableTags, setAvailableTags] = useState<BibleTag[]>([]);
   const [activeChapter, setActiveChapter] = useState<Chapter | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -52,8 +60,13 @@ export default function EditStoryPage({ params }: { params: Promise<{ id: string
       setLoading(true);
       try {
         const authHeaders = await adminAuthorizationHeader();
-        const res = await fetch(`/api/admin/bible/stories/${id}`, { headers: authHeaders });
+        const [res, tagsRes] = await Promise.all([
+          fetch(`/api/admin/bible/stories/${id}`, { headers: authHeaders }),
+          fetch("/api/admin/bible/tags", { headers: authHeaders })
+        ]);
         const json = await res.json();
+        const tagsJson = await tagsRes.json();
+        if (tagsRes.ok) setAvailableTags(tagsJson.tags || []);
         if (json.story) {
           setStory(json.story);
           setChapters(json.chapters || []);
@@ -236,20 +249,25 @@ export default function EditStoryPage({ params }: { params: Promise<{ id: string
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-ink/70">Tags (comma separated)</label>
-                <input
-                  type="text"
-                  value={story.tags?.join(",") || ""}
-                  onChange={(e) => {
-                    setStory({ ...story, tags: e.target.value.split(",") });
-                  }}
-                  onBlur={() => {
-                    const cleaned = (story.tags || []).map(t => t.trim()).filter(Boolean);
-                    setStory({ ...story, tags: cleaned });
-                  }}
-                  className="input w-full text-xs"
-                  placeholder="e.g. Faith, Miracles"
-                />
+                <label className="text-xs font-semibold text-ink/70">Story filters</label>
+                <div className="mt-1 grid grid-cols-2 gap-2 rounded-xl border border-line p-3">
+                  {availableTags.filter((tag) => tag.is_active || story.tags.includes(tag.slug)).map((tag) => (
+                    <label key={tag.id} className="flex items-center gap-2 text-xs text-ink">
+                      <input
+                        type="checkbox"
+                        checked={story.tags.includes(tag.slug)}
+                        onChange={(event) => setStory({
+                          ...story,
+                          tags: event.target.checked
+                            ? Array.from(new Set([...story.tags, tag.slug]))
+                            : story.tags.filter((slug) => slug !== tag.slug)
+                        })}
+                      />
+                      {tag.display_name}
+                    </label>
+                  ))}
+                  {availableTags.length === 0 && <span className="text-xs text-muted">Create filters from Manage Filters first.</span>}
+                </div>
               </div>
 
               {story.created_at && (

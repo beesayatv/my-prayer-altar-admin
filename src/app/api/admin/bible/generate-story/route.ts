@@ -354,7 +354,9 @@ Do NOT skip scripture or entity_callout blocks. A chapter missing any of these 4
           summary: story_metadata.summary?.trim() || "",
           access_level: ["free","premium"].includes(story_metadata.access_level) ? story_metadata.access_level : "free",
           status: "draft",
-          tags: Array.isArray(story_metadata.tags) ? story_metadata.tags : [],
+          tags: Array.isArray(story_metadata.tags)
+            ? Array.from(new Set(story_metadata.tags.map((tag: unknown) => String(tag).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")).filter(Boolean)))
+            : [],
           updated_at: new Date().toISOString()
         })
         .eq("id", storyId);
@@ -368,7 +370,9 @@ Do NOT skip scripture or entity_callout blocks. A chapter missing any of these 4
           summary: story_metadata.summary?.trim() || "",
           access_level: ["free","premium"].includes(story_metadata.access_level) ? story_metadata.access_level : "free",
           status: "draft",
-          tags: Array.isArray(story_metadata.tags) ? story_metadata.tags : []
+          tags: Array.isArray(story_metadata.tags)
+            ? Array.from(new Set(story_metadata.tags.map((tag: unknown) => String(tag).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")).filter(Boolean)))
+            : []
         })
         .select("id")
         .single();

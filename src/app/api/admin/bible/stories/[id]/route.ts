@@ -74,7 +74,9 @@ export async function PUT(
         cover_media_path: newCoverPath,
         access_level: access_level || "free",
         status: status || "draft",
-        tags: Array.isArray(tags) ? tags : [],
+        tags: Array.isArray(tags)
+          ? Array.from(new Set(tags.map((tag: unknown) => String(tag).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")).filter(Boolean)))
+          : [],
         updated_at: new Date().toISOString()
       })
       .eq("id", id)
