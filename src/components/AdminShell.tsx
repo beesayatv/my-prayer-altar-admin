@@ -20,6 +20,7 @@ export function AdminShell({ email, onSignOut, children }: { email: string; onSi
           <nav className="mt-8 flex flex-col gap-1.5" aria-label="Studio navigation">
             <p className="eyebrow px-3 mb-1 text-[10.5px]">Content</p>
             <Link className={`nav-link ${isActive("/content") ? "active" : ""}`} href="/content">Today Feed</Link>
+            <Link className={`nav-link ${isActive("/devotions") ? "active" : ""}`} href="/devotions">Devotions</Link>
             <Link className={`nav-link ${isActive("/calendar") ? "active" : ""}`} href="/calendar">Editorial Calendar</Link>
             <p className="eyebrow px-3 mt-5 mb-1 text-[10.5px]">Creation &amp; Publishing</p>
             <Link className={`nav-link ${isActive("/bible/stories") ? "active" : ""}`} href="/bible/stories">My Bible Studio</Link>

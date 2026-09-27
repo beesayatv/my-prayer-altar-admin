@@ -32,7 +32,10 @@ export function ContentList() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const activeTab = (searchParams.get("type") ?? "all") as "all" | "church_highlight" | "daily_prayer" | "daily_inspiration" | "bible_reading" | "update" | "faith_story" | "video_feature";
+  type TodayContentFilter = "all" | "church_highlight" | "daily_prayer" | "daily_inspiration" | "bible_reading" | "update" | "faith_story" | "video_feature";
+  const requestedType = searchParams.get("type") ?? "all";
+  const todayContentFilters = new Set<TodayContentFilter>(["all", "church_highlight", "daily_prayer", "daily_inspiration", "bible_reading", "update", "faith_story", "video_feature"]);
+  const activeTab: TodayContentFilter = todayContentFilters.has(requestedType as TodayContentFilter) ? requestedType as TodayContentFilter : "all";
   const statusFilter = (searchParams.get("status") ?? "all") as "all" | "live" | "scheduled" | "draft" | "archived";
 
   function setFilter(type: string, status: string) {

@@ -504,3 +504,43 @@ button, input, textarea, select { font: inherit; }
 .animate-indeterminate {
   animation: indeterminate 1.8s infinite linear;
 }
+
+/* Devotions editorial workspace */
+.devotion-directory-toolbar { align-items: center; display: flex; gap: 16px; justify-content: space-between; margin-bottom: 24px; }
+.devotion-directory-toolbar .input { max-width: 460px; }
+.devotion-directory-toolbar span { color: var(--muted); font-size: 14px; font-weight: 700; }
+.devotion-grid { display: grid; gap: 24px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.devotion-directory-card { background: white; border: 1px solid var(--line); border-radius: 20px; box-shadow: var(--shadow-sm); overflow: hidden; transition: .2s ease; }
+.devotion-directory-card:hover { border-color: rgba(197,160,89,.55); box-shadow: var(--shadow-md); transform: translateY(-2px); }
+.devotion-directory-cover { align-items: center; aspect-ratio: 16/10; background: linear-gradient(145deg, #ede3d4, #c9a96c); display: flex; justify-content: center; position: relative; }
+.devotion-directory-cover > img { height: 100%; object-fit: cover; width: 100%; }
+.devotion-directory-cover > span:not(.badge) { color: white; font-size: 42px; }
+.devotion-directory-cover .badge { position: absolute; right: 14px; top: 14px; }
+.devotion-directory-body { display: flex; flex-direction: column; gap: 24px; min-height: 210px; padding: 22px; }
+.devotion-directory-body h2 { font-family: var(--font-serif), Georgia, serif; font-size: 23px; margin: 0 0 8px; }
+.devotion-directory-body p { color: var(--muted); font-size: 14px; line-height: 1.55; margin: 0; }
+.devotion-card-footer { align-items: center; display: flex; justify-content: space-between; margin-top: auto; }
+.devotion-card-footer > span { color: var(--muted); font-size: 13px; font-weight: 700; }
+.devotion-empty { padding: 48px; text-align: center; }
+.devotion-editor-head { align-items: flex-end; display: flex; gap: 24px; justify-content: space-between; margin-bottom: 24px; }
+.devotion-editor-actions { align-items: center; display: flex; gap: 14px; }
+.devotion-tabs { border-bottom: 1px solid var(--line); display: flex; gap: 28px; margin-bottom: 30px; overflow-x: auto; }
+.devotion-tabs button { background: transparent; border: 0; border-bottom: 3px solid transparent; color: var(--muted); cursor: pointer; font-size: 14px; font-weight: 800; padding: 14px 2px; white-space: nowrap; }
+.devotion-tabs button.active { border-bottom-color: var(--wine); color: var(--wine); }
+.devotion-workspace { align-items: start; display: grid; gap: 30px; grid-template-columns: minmax(0, 1fr) 360px; }
+.devotion-editor-main, .devotion-content-stack, .devotion-linked-list, .devotion-candidate-list, .devotion-cover-manager { display: grid; gap: 22px; }
+.devotion-form { display: grid; gap: 26px; padding: 30px; }
+.devotion-phone { background: #faf7f1; border: 8px solid #27211f; border-radius: 34px; box-shadow: 0 18px 40px rgba(45,32,24,.18); min-height: 620px; overflow: hidden; }
+.devotion-preview-wrap { position: sticky; top: 28px; }
+.devotion-phone-hero { background-color: #70452f; background-position: center; background-size: cover; color: white; display: flex; flex-direction: column; justify-content: space-between; min-height: 270px; padding: 22px; }
+.devotion-phone-hero > span { font-size: 34px; }.devotion-phone-hero small { font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }.devotion-phone-hero h2 { font-family: var(--font-serif), Georgia, serif; font-size: 31px; line-height: 1.03; margin: 8px 0; }.devotion-phone-hero p { font-size: 13px; line-height: 1.45; margin: 0; }
+.devotion-phone-body { color: #554a44; font-family: Georgia, serif; font-size: 13px; line-height: 1.55; padding: 22px; }.devotion-phone-body h3 { color: #2c2522; font-size: 19px; margin: 24px 0 10px; }.devotion-preview-item { align-items: center; background: white; border: 1px solid #e6ddd2; border-radius: 12px; display: flex; font-family: system-ui, sans-serif; font-weight: 700; justify-content: space-between; margin-bottom: 8px; padding: 12px; }.devotion-preview-empty { background: #f1e9df; border-radius: 12px; color: #786b63; font-family: system-ui, sans-serif; margin-top: 22px; padding: 16px; }
+.devotion-linked-card { border: 1px solid var(--line); border-radius: 16px; padding: 18px; }.devotion-linked-copy { align-items: start; display: flex; gap: 16px; justify-content: space-between; }.devotion-linked-copy h3, .devotion-candidate-list h3 { font-family: var(--font-serif), Georgia, serif; font-size: 18px; margin: 4px 0; }.devotion-linked-copy p, .devotion-candidate-list p { color: var(--muted); font-size: 12px; margin: 0; }.devotion-section-label { color: var(--wine); font-size: 11px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }.devotion-link-controls { display: grid; gap: 8px; grid-template-columns: minmax(160px, 1fr) auto auto auto auto; margin-top: 16px; }.devotion-link-controls .button { padding-left: 13px; padding-right: 13px; }
+.devotion-content-filters { display: grid; gap: 12px; grid-template-columns: 1fr 210px 210px; margin: 20px 0; }.devotion-candidate-list article { align-items: center; border-top: 1px solid var(--line); display: grid; gap: 14px; grid-template-columns: minmax(0,1fr) 190px auto; padding: 15px 0; }.devotion-placeholder, .devotion-inline-message { background: var(--beige); border-radius: 12px; color: var(--muted); font-size: 13px; padding: 14px; }
+.devotion-cover-preview { align-items: center; aspect-ratio: 16/9; background: var(--beige); border: 1px dashed var(--line); border-radius: 18px; color: var(--muted); display: flex; justify-content: center; overflow: hidden; }.devotion-cover-preview img { height: 100%; object-fit: cover; width: 100%; }.devotion-cover-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 10px; }.devotion-cover-actions small { color: var(--muted); }.devotion-media-grid { display: grid; gap: 10px; grid-template-columns: repeat(6, 1fr); margin-top: 14px; }.devotion-media-grid button { aspect-ratio: 1; background: transparent; border: 3px solid transparent; border-radius: 10px; cursor: pointer; overflow: hidden; padding: 0; }.devotion-media-grid button.selected { border-color: var(--gold); }.devotion-media-grid img { height: 100%; object-fit: cover; width: 100%; }.devotion-advanced { border-top: 1px solid var(--line); padding-top: 22px; }.devotion-advanced summary { cursor: pointer; font-weight: 800; }
+.devotion-danger-zone { background: #fff5f3; border: 1px solid #f0cec7; border-radius: 14px; padding: 18px; }.devotion-danger-zone h3 { color: var(--danger); font-family: var(--font-serif), Georgia, serif; font-size: 19px; margin: 0 0 5px; }.devotion-danger-zone p { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
+.devotion-content-actions { display: flex; flex-wrap: wrap; gap: 12px; margin: -12px 0 22px; }.devotion-create-content { display: grid; gap: 22px; margin-bottom: 26px; padding: 28px; }.devotion-create-head { align-items: start; display: flex; gap: 20px; justify-content: space-between; }
+.devotion-section-editor { align-items: center; border-top: 1px solid var(--line); display: grid; gap: 12px; grid-template-columns: 120px minmax(180px, 1fr) auto auto auto; padding: 14px 0; }.devotion-section-editor label { align-items: center; color: var(--muted); display: flex; font-size: 13px; gap: 6px; white-space: nowrap; }
+@media (max-width: 1200px) { .devotion-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.devotion-workspace { grid-template-columns: minmax(0,1fr) 310px; } }
+@media (max-width: 900px) { .devotion-workspace { grid-template-columns: 1fr; }.devotion-preview-wrap { position: static; }.devotion-phone { margin: auto; max-width: 390px; }.devotion-content-filters { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .devotion-grid { grid-template-columns: 1fr; }.devotion-editor-head, .devotion-directory-toolbar { align-items: stretch; flex-direction: column; }.devotion-editor-actions { justify-content: space-between; }.devotion-link-controls, .devotion-candidate-list article, .devotion-section-editor { grid-template-columns: 1fr; }.devotion-media-grid { grid-template-columns: repeat(3, 1fr); } }

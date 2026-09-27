@@ -1,0 +1,8 @@
+import { Devotion, DevotionItem, DevotionSection, devotionImageUrl } from "@/lib/devotions";
+
+export function DevotionPreview({ devotion, sections, items }: { devotion: Devotion; sections: DevotionSection[]; items: DevotionItem[] }) {
+  const visibleItems = items.filter(item => item.status === "published");
+  const visibleSections = sections.filter(section => section.is_visible && visibleItems.some(item => item.section_id === section.id)).sort((a, b) => a.sort_order - b.sort_order);
+  const cover = devotionImageUrl(devotion.cover_image_path);
+  return <aside className="devotion-preview-wrap"><p className="eyebrow">Android-style preview</p><div className="devotion-phone"><div className="devotion-phone-hero" style={cover ? { backgroundImage: `linear-gradient(0deg, rgba(30,16,10,.84), rgba(30,16,10,.08)), url(${cover})` } : undefined}><span>‹</span><div><small>Devotion</small><h2>{devotion.title || "Untitled devotion"}</h2><p>{devotion.short_description || "Add a short devotional introduction."}</p></div></div><div className="devotion-phone-body"><p>{devotion.description || "The longer introduction will appear here."}</p>{visibleSections.map(section => <section key={section.id}><h3>{section.display_label}</h3>{visibleItems.filter(item => item.section_id === section.id).sort((a, b) => a.sort_order - b.sort_order).map(item => <div className="devotion-preview-item" key={item.id}><span>{item.title}</span><b>›</b></div>)}</section>)}{visibleSections.length === 0 && <div className="devotion-preview-empty">Published devotional content will appear here. Empty sections stay hidden.</div>}</div></div></aside>;
+}

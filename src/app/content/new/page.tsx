@@ -7,7 +7,9 @@ import { ContentEditor } from "@/components/ContentEditor";
 
 function NewContentForm() {
   const searchParams = useSearchParams();
-  const type = searchParams.get("type") || "church_highlight";
+  const requestedType = searchParams.get("type") || "church_highlight";
+  const allowedTypes = new Set(["church_highlight", "daily_prayer", "daily_inspiration", "bible_reading", "update", "faith_story", "video_feature"]);
+  const type = allowedTypes.has(requestedType) ? requestedType : "church_highlight";
 
   return <ContentEditor contentType={type} />;
 }
